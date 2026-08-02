@@ -1,0 +1,106 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Admin / Dev Suite",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "by You",
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
+    KeySystem = false
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+
+--------------------------------------------------------
+-- Section: Shop & Rewards
+--------------------------------------------------------
+Tab:CreateSection("Shop & Rewards")
+
+Tab:CreateButton({
+    Name = "Claim Tutorial Money",
+    Callback = function()
+        game:GetService("ReplicatedStorage"):WaitForChild("AwardTutorialMoney"):FireServer()
+    end,
+})
+
+Tab:CreateButton({
+    Name = "Buy Magic Mushroom Seed",
+    Callback = function()
+        local args = { "Magic Mushroom Seed", 0 }
+        game:GetService("ReplicatedStorage"):WaitForChild("BuySeedRequest"):FireServer(unpack(args))
+    end,
+})
+
+--------------------------------------------------------
+-- Section: Admin Player Lock System
+--------------------------------------------------------
+Tab:CreateSection("Admin Combat Utility")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local LockOnEnabled = false
+local LockConnection = nil
+
+-- ฟังก์ชันค้นหา "ผู้เล่นอื่น" (Other Players) ที่ใกล้ที่สุด
+local function GetClosestPlayer()
+    local closestPart = nil
+    local shortestDistance = 150 -- ระยะตรวจจับผู้เล่น (ปรับเพิ่ม/ลดได้)
+
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+
+    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+
+    -- วนลูปเช็กเฉพาะผู้เล่นในเซิร์ฟเวอร์ (Players Service)
+    for _, player in pairs(Players:GetPlayers()) do
+        -- ต้องไม่ใช่ตัวเอง และตัวละครต้องเกิดแล้ว
+        if player ~= LocalPlayer and player.Character then
+            local char = player.Character
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+
+            -- ตรวจสอบว่ายังมีชีวิตอยู่
+            if humanoid and humanoid.Health > 0 and targetPart then
+                local distance = (targetPart.Position - myPos).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestPart = targetPart
+                end
+            end
+        end
+    end
+
+    return closestPart
+end
+
+-- สวิตช์เปิด-ปิดระบบล็อกเป้าผู้เล่น
+Tab:CreateToggle({
+    Name = "Player Target Lock",
+    CurrentValue = false,
+    Flag = "PlayerLockToggle",
+    Callback = function(Value)
+        LockOnEnabled = Value
+
+        if LockOnEnabled then
+            LockConnection = RunService.RenderStepped:Connect(function()
+                local target = GetClosestPlayer()
+                if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    -- ปรับ CFrame กล้องให้หันไปทางเป้าหมายผู้เล่นอย่างนุ่มนวล
+                    local currentCFrame = Camera.CFrame
+                    local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+                    Camera.CFrame = currentCFrame:Lerp(targetCFrame, 0.2)
+                end
+            end)
+        else
+            if LockConnection then
+                LockConnection:Disconnect()
+                LockConnection = nil
+            end
+        end
+    end,
+})
