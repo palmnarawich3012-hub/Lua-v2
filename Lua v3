@@ -8,10 +8,10 @@ if not success or not Rayfield then
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "My Game Suite",
+    Name = "palm scripts นำเสนอ",
     Icon = 0,
-    LoadingTitle = "Loading System...",
-    LoadingSubtitle = "by You",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "by ปวยหัวคาม",
     Theme = "Default",
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
