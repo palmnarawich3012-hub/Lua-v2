@@ -35,7 +35,7 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 --------------------------------------------------------
--- MAIN TAB: Shop & Physics Mechanics
+-- MAIN TAB: Shop, Physics & Fling Mechanics
 --------------------------------------------------------
 MainTab:CreateSection("Shop & Rewards")
 
@@ -63,10 +63,58 @@ MainTab:CreateButton({
     end,
 })
 
+MainTab:CreateSection("Fling System")
+
+local hiddenfling = false
+local flingLoop = nil
+
+-- สร้าง Decal ตรวจจับความปลอดภัยแบบเดิม
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local detection = Instance.new("Decal")
+    detection.Name = "juisdfj0i32i0eidsuf0iok"
+    detection.Parent = ReplicatedStorage
+end
+
+MainTab:CreateToggle({
+    Name = "Touch Fling",
+    CurrentValue = false,
+    Flag = "TouchFlingToggle",
+    Callback = function(Value)
+        hiddenfling = Value
+
+        if hiddenfling then
+            flingLoop = task.spawn(function()
+                local movel = 0.1
+                while hiddenfling do
+                    RunService.Heartbeat:Wait()
+                    local c = LocalPlayer.Character
+                    local hrp = c and c:FindFirstChild("HumanoidRootPart")
+
+                    if hrp then
+                        local vel = hrp.Velocity
+                        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+                        RunService.RenderStepped:Wait()
+                        hrp.Velocity = vel
+                        RunService.Stepped:Wait()
+                        hrp.Velocity = vel + Vector3.new(0, movel, 0)
+                        movel = -movel
+                    end
+                end
+            end)
+        else
+            hiddenfling = false
+            if flingLoop then
+                task.cancel(flingLoop)
+                flingLoop = nil
+            end
+        end
+    end,
+})
+
 MainTab:CreateSection("Launch System (R6 / R15 Supported)")
 
 local launchPower = 100
-local animAssetId = "" -- ใส่ Animation Asset ID หากต้องการให้เล่นท่าทาง
+local animAssetId = "" 
 
 MainTab:CreateSlider({
     Name = "Launch Force Power",
