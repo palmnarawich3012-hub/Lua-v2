@@ -8,10 +8,10 @@ if not success or not Rayfield then
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "by ปาล์มควย",
+    Name = "รวมโดยปาล์ม นราวิชญ์",
     Icon = 0,
-    LoadingTitle = "Loading Systems...",
-    LoadingSubtitle = "by ปาล์ม",
+    LoadingTitle = "กำลังโหลด...",
+    LoadingSubtitle = "by ปาล์มหัวดอ",
     Theme = "Default",
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
@@ -24,6 +24,8 @@ local Window = Rayfield:CreateWindow({
 -- TABS & SERVICES
 -- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
+local TeleportTab = Window:CreateTab("Teleport", 4483362458)
+local BloxFruitsTab = Window:CreateTab("Blox Fruits", 4483362458)
 local ESPTab = Window:CreateTab("ESP System", 4483362458)
 local FPSTab = Window:CreateTab("FPS System", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
@@ -31,12 +33,157 @@ local SettingsTab = Window:CreateTab("Settings", 4483362458)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 --------------------------------------------------------
--- MAIN TAB: Essential Features & Combat Tools
+-- GUI ANIMATION SYSTEM
+--------------------------------------------------------
+local guiVisible = true
+local isAnimating = false
+
+local function AnimateGUI(show)
+    if isAnimating then return end
+    
+    local coreGui = game:GetService("CoreGui")
+    local rayfieldGui = coreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+    
+    if not rayfieldGui then return end
+    
+    local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
+    if not mainFrame then return end
+    
+    isAnimating = true
+    
+    if show then
+        mainFrame.Visible = true
+        mainFrame.Size = UDim2.new(0, 0, 0, 0)
+        
+        local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        local targetSize = UDim2.new(0, 500, 0, 350)
+        
+        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = targetSize})
+        tween:Play()
+        tween.Completed:Connect(function()
+            guiVisible = true
+            isAnimating = false
+        end)
+    else
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        local targetSize = UDim2.new(0, 0, 0, 0)
+        
+        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = targetSize})
+        tween:Play()
+        tween.Completed:Connect(function()
+            mainFrame.Visible = false
+            guiVisible = false
+            isAnimating = false
+        end)
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.LeftControl then
+        AnimateGUI(not guiVisible)
+    end
+end)
+
+--------------------------------------------------------
+-- TELEPORT SYSTEM TAB (ระบบวาร์ป)
+--------------------------------------------------------
+TeleportTab:CreateSection("Player Teleport (วาร์ปไปหาผู้เล่น)")
+
+local selectedPlayerName = ""
+
+local function GetPlayerNames()
+    local names = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(names, p.Name)
+        end
+    end
+    return names
+end
+
+local PlayerDropdown = TeleportTab:CreateDropdown({
+    Name = "Select Player (เลือกผู้เล่น)",
+    Options = GetPlayerNames(),
+    CurrentOption = {},
+    MultipleOptions = false,
+    Flag = "TeleportPlayerDropdown",
+    Callback = function(Option)
+        selectedPlayerName = Option[1] or ""
+    end,
+})
+
+TeleportTab:CreateButton({
+    Name = "Refresh Player List (รีเฟรชรายชื่อ)",
+    Callback = function()
+        PlayerDropdown:Set(GetPlayerNames())
+    end,
+})
+
+TeleportTab:CreateButton({
+    Name = "Teleport to Player (วาร์ป)",
+    Callback = function()
+        if selectedPlayerName ~= "" then
+            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    Rayfield:Notify({Title = "Teleport", Content = "Teleported to " .. selectedPlayerName, Duration = 2})
+                end
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "Please select a player first!", Duration = 2})
+        end
+    end,
+})
+
+TeleportTab:CreateSection("Position Save & Load (บันทึก/วาร์ปจุด)")
+
+local savedCFrame = nil
+
+TeleportTab:CreateButton({
+    Name = "Save Current Position (บันทึกพิกัดปัจจุบัน)",
+    Callback = function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            savedCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+            Rayfield:Notify({Title = "Position Saved", Content = "Saved current location!", Duration = 3})
+        end
+    end,
+})
+
+TeleportTab:CreateButton({
+    Name = "Teleport to Saved Position (วาร์ปไปจุดที่บันทึก)",
+    Callback = function()
+        if savedCFrame then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = savedCFrame
+                Rayfield:Notify({Title = "Teleport", Content = "Teleported to saved location!", Duration = 2})
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "No position saved yet!", Duration = 2})
+        end
+    end,
+})
+
+TeleportTab:CreateSection("Quick Utilities")
+
+TeleportTab:CreateButton({
+    Name = "Teleport High Above (วาร์ปขึ้นที่สูง)",
+    Callback = function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 100, 0)
+        end
+    end,
+})
+
+--------------------------------------------------------
+-- MAIN TAB
 --------------------------------------------------------
 MainTab:CreateSection("Admin & Scripts")
 
@@ -48,197 +195,39 @@ MainTab:CreateButton({
     end,
 })
 
-MainTab:CreateSection("Combat & Hitbox")
-
-local Hitbox_Enabled = false
-local Hitbox_Size = 10
-local HitboxConnection = nil
-
-MainTab:CreateToggle({
-    Name = "Enable Hitbox Extender",
-    CurrentValue = false,
-    Flag = "MainHitboxToggle",
-    Callback = function(Value)
-        Hitbox_Enabled = Value
-
-        if Hitbox_Enabled then
-            HitboxConnection = RunService.RenderStepped:Connect(function()
-                for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer and player.Character then
-                        local isTeammate = (player.Team ~= nil and player.Team == LocalPlayer.Team)
-                        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-
-                        if hrp and not isTeammate then
-                            hrp.Size = Vector3.new(Hitbox_Size, Hitbox_Size, Hitbox_Size)
-                            hrp.Transparency = 0.7
-                            hrp.BrickColor = BrickColor.new("Really red")
-                            hrp.Material = Enum.Material.Neon
-                            hrp.CanCollide = false
-                        elseif hrp and isTeammate then
-                            hrp.Size = Vector3.new(2, 2, 1)
-                            hrp.Transparency = 1
-                        end
-                    end
-                end
-            end)
-        else
-            if HitboxConnection then
-                HitboxConnection:Disconnect()
-                HitboxConnection = nil
-            end
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        hrp.Size = Vector3.new(2, 2, 1)
-                        hrp.Transparency = 1
-                    end
-                end
-            end
-        end
-    end,
-})
-
-MainTab:CreateSlider({
-    Name = "Hitbox Size",
-    Range = {2, 50},
-    Increment = 1,
-    Suffix = "Studs",
-    CurrentValue = 10,
-    Flag = "MainHitboxSizeSlider",
-    Callback = function(Value)
-        Hitbox_Size = Value
-    end,
-})
-
-MainTab:CreateSection("Movement Perks")
-
-local NoclipEnabled = false
-local NoclipConnection = nil
-
-MainTab:CreateToggle({
-    Name = "Noclip (Walk Through Walls)",
-    CurrentValue = false,
-    Flag = "MainNoclipToggle",
-    Callback = function(Value)
-        NoclipEnabled = Value
-
-        if NoclipEnabled then
-            NoclipConnection = RunService.Stepped:Connect(function()
-                if LocalPlayer.Character then
-                    for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
-                    end
-                end
-            end)
-        else
-            if NoclipConnection then
-                NoclipConnection:Disconnect()
-                NoclipConnection = nil
-            end
-            if LocalPlayer.Character then
-                for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = true
-                    end
-                end
-            end
-        end
-    end,
-})
-
-MainTab:CreateSection("Fling System")
-
-local hiddenfling = false
-local flingLoop = nil
-
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-    local detection = Instance.new("Decal")
-    detection.Name = "juisdfj0i32i0eidsuf0iok"
-    detection.Parent = ReplicatedStorage
-end
-
-MainTab:CreateToggle({
-    Name = "Touch Fling (Safe Mode)",
-    CurrentValue = false,
-    Flag = "TouchFlingToggle",
-    Callback = function(Value)
-        hiddenfling = Value
-
-        if hiddenfling then
-            flingLoop = task.spawn(function()
-                local movel = 0.1
-                while hiddenfling do
-                    RunService.Heartbeat:Wait()
-                    local c = LocalPlayer.Character
-                    local hrp = c and c:FindFirstChild("HumanoidRootPart")
-
-                    if c and hrp then
-                        for _, part in ipairs(c:GetChildren()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
-                            end
-                        end
-
-                        local vel = hrp.Velocity
-                        hrp.Velocity = vel * 1000 + Vector3.new(0, 1000, 0)
-                        RunService.RenderStepped:Wait()
-                        hrp.Velocity = vel
-                        RunService.Stepped:Wait()
-                        hrp.Velocity = vel + Vector3.new(0, movel, 0)
-                        movel = -movel
-                    end
-                end
-            end)
-        else
-            hiddenfling = false
-            if flingLoop then
-                task.cancel(flingLoop)
-                flingLoop = nil
-            end
-            
-            local c = LocalPlayer.Character
-            if c then
-                for _, part in ipairs(c:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = true
-                    end
-                end
-            end
-        end
-    end,
-})
-
-MainTab:CreateSection("Grow a Mushroom")
+MainTab:CreateSection("Combat Tools")
 
 MainTab:CreateButton({
-    Name = "Claim Tutorial Money",
+    Name = "Execute Drop Kick Script",
     Callback = function()
-        local remote = ReplicatedStorage:FindFirstChild("AwardTutorialMoney")
-        if remote then
-            remote:FireServer()
-        else
-            Rayfield:Notify({Title = "Notice", Content = "AwardTutorialMoney not found!", Duration = 3})
-        end
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "Buy Magic Mushroom Seed",
-    Callback = function()
-        local remote = ReplicatedStorage:FindFirstChild("BuySeedRequest")
-        if remote then
-            remote:FireServer("Magic Mushroom Seed", 0)
-        else
-            Rayfield:Notify({Title = "Notice", Content = "BuySeedRequest not found!", Duration = 3})
-        end
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))()
+        Rayfield:Notify({Title = "Success", Content = "Drop Kick Executed!", Duration = 3})
     end,
 })
 
 --------------------------------------------------------
--- ESP SYSTEM TAB (พร้อมระบบ Team Check)
+-- BLOX FRUITS TAB
+--------------------------------------------------------
+BloxFruitsTab:CreateSection("Blox Fruits Scripts Hub")
+
+BloxFruitsTab:CreateButton({
+    Name = "Execute Redz Hub (Blox Fruits)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/realredz/BloxFruits/main/Source.lua"))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Redz Hub!", Duration = 3})
+    end,
+})
+
+BloxFruitsTab:CreateButton({
+    Name = "Execute Hoho Hub",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/acsu123/HOHO_HUB/main/Loading_v3.lua'))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Hoho Hub!", Duration = 3})
+    end,
+})
+
+--------------------------------------------------------
+-- ESP SYSTEM TAB
 --------------------------------------------------------
 ESPTab:CreateSection("Player ESP Controls")
 
@@ -353,18 +342,8 @@ ESPTab:CreateToggle({
     end,
 })
 
-Players.PlayerAdded:Connect(function(player)
-    if ESP_Enabled then
-        ApplyESP(player)
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    RemoveESP(player)
-end)
-
 --------------------------------------------------------
--- FPS SYSTEM TAB: Targeting System
+-- FPS TAB
 --------------------------------------------------------
 FPSTab:CreateSection("Targeting System")
 
@@ -428,18 +407,8 @@ FPSTab:CreateToggle({
 })
 
 --------------------------------------------------------
--- SETTINGS TAB: Character Movement & Extra Hubs
+-- SETTINGS TAB
 --------------------------------------------------------
-SettingsTab:CreateSection("External Hubs")
-
-SettingsTab:CreateButton({
-    Name = "Execute Ghost Hub",
-    Callback = function()
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/GhostHub'))()
-        Rayfield:Notify({Title = "Success", Content = "Ghost Hub Executed!", Duration = 3})
-    end,
-})
-
 SettingsTab:CreateSection("Movement Settings")
 
 SettingsTab:CreateSlider({
@@ -473,10 +442,16 @@ SettingsTab:CreateSlider({
 SettingsTab:CreateSection("UI Controls")
 
 SettingsTab:CreateButton({
+    Name = "Toggle UI (With Animation)",
+    Callback = function()
+        AnimateGUI(not guiVisible)
+    end,
+})
+
+SettingsTab:CreateButton({
     Name = "Unload UI",
     Callback = function()
-        if NoclipConnection then NoclipConnection:Disconnect() end
-        if HitboxConnection then HitboxConnection:Disconnect() end
+        if LockConnection then LockConnection:Disconnect() end
         for player, _ in pairs(ESP_Boxes) do
             RemoveESP(player)
         end
