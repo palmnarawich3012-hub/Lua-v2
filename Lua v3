@@ -8,10 +8,10 @@ if not success or not Rayfield then
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "ปาล์ม scripts",
+    Name = "by ปาล์มควย",
     Icon = 0,
-    LoadingTitle = "Loading...",
-    LoadingSubtitle = "by ปาล์มควย",
+    LoadingTitle = "Loading Systems...",
+    LoadingSubtitle = "by ปาล์ม",
     Theme = "Default",
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
@@ -21,20 +21,18 @@ local Window = Rayfield:CreateWindow({
 })
 
 -- ========================================================
--- TABS
+-- TABS & SERVICES
 -- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
 local FPSTab = Window:CreateTab("FPS System", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
--- ========================================================
--- SERVICES & VARIABLES
--- ========================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 --------------------------------------------------------
 -- MAIN TAB: Shop & Physics Mechanics
@@ -65,64 +63,37 @@ MainTab:CreateButton({
     end,
 })
 
-MainTab:CreateSection("Physics & Combat Mechanics")
+MainTab:CreateSection("Launch System (R6 / R15 Supported)")
 
-local TouchFlingEnabled = false
-local TouchConnection = nil
+local launchPower = 100
+local animAssetId = "" -- ใส่ Animation Asset ID หากต้องการให้เล่นท่าทาง
 
--- สวิตช์เปิด-ปิดระบบ Drop Kick / Touch Fling (เดินชนแล้วปลิว)
-MainTab:CreateToggle({
-    Name = "Drop Kick (แตะแล้วปลิว)",
-    CurrentValue = false,
-    Flag = "DropKickToggle",
+MainTab:CreateSlider({
+    Name = "Launch Force Power",
+    Range = {10, 500},
+    Increment = 10,
+    Suffix = "Power",
+    CurrentValue = 100,
+    Flag = "LaunchForceSlider",
     Callback = function(Value)
-        TouchFlingEnabled = Value
-
-        if TouchFlingEnabled then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local hrp = char.HumanoidRootPart
-
-                -- ตรวจจับการแตะ/ชน
-                TouchConnection = hrp.Touched:Connect(function(hit)
-                    if not TouchFlingEnabled then return end
-                    
-                    local targetChar = hit.Parent
-                    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-                    local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
-
-                    -- ตรวจสอบว่าตัวที่ชนเป็นผู้เล่นอื่น และไม่ใช่ตัวเราเอง
-                    if targetHrp and targetHumanoid and targetChar ~= char then
-                        -- คำนวณทิศทางแรงผลัก (ผลักไปข้างหน้า + ยกขึ้นฟ้า)
-                        local pushDirection = hrp.CFrame.LookVector * 150 + Vector3.new(0, 100, 0)
-                        
-                        -- ส่งแรงอัดให้เป้าหมายกระเด็นปลิว
-                        targetHrp.AssemblyLinearVelocity = pushDirection
-                    end
-                end)
-            end
-        else
-            if TouchConnection then
-                TouchConnection:Disconnect()
-                TouchConnection = nil
-            end
-        end
+        launchPower = Value
     end,
 })
 
--- ปุ่มเด้งขึ้นฟ้า
 MainTab:CreateButton({
-    Name = "Launch Upward (เด้งขึ้นฟ้า)",
+    Name = "Activate Launch / Knockback",
     Callback = function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = LocalPlayer.Character.HumanoidRootPart
-            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 150, hrp.AssemblyLinearVelocity.Z)
+        local launchEvent = ReplicatedStorage:FindFirstChild("LaunchEvent")
+        if launchEvent then
+            launchEvent:FireServer(launchPower, animAssetId)
+        else
+            Rayfield:Notify({Title = "Error", Content = "LaunchEvent missing in ReplicatedStorage!", Duration = 3})
         end
     end,
 })
 
 --------------------------------------------------------
--- FPS SYSTEM TAB
+-- FPS SYSTEM TAB: Camera Target Lock
 --------------------------------------------------------
 FPSTab:CreateSection("Targeting System")
 
@@ -164,7 +135,6 @@ FPSTab:CreateToggle({
     Flag = "TargetLockToggle",
     Callback = function(Value)
         LockOnEnabled = Value
-        local Camera = workspace.CurrentCamera
 
         if LockOnEnabled then
             LockConnection = RunService.RenderStepped:Connect(function()
@@ -185,7 +155,7 @@ FPSTab:CreateToggle({
 })
 
 --------------------------------------------------------
--- SETTINGS TAB
+-- SETTINGS TAB: Character Movement & UI Controls
 --------------------------------------------------------
 SettingsTab:CreateSection("Movement Settings")
 
