@@ -8,19 +8,15 @@ if not success or not Rayfield then
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "palm scripts นำเสนอ",
+    Name = "ปาล์ม scripts",
     Icon = 0,
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by ปวยหัวคาม",
+    LoadingSubtitle = "by ปาล์มควย",
     Theme = "Default",
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
-    ConfigurationSaving = {
-        Enabled = false
-    },
-    Discord = {
-        Enabled = false
-    },
+    ConfigurationSaving = { Enabled = false },
+    Discord = { Enabled = false },
     KeySystem = false
 })
 
@@ -36,14 +32,12 @@ local SettingsTab = Window:CreateTab("Settings", 4483362458)
 -- ========================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
 --------------------------------------------------------
--- MAIN TAB: Shop & Rewards
+-- MAIN TAB: Shop & Physics Mechanics
 --------------------------------------------------------
 MainTab:CreateSection("Shop & Rewards")
 
@@ -71,8 +65,64 @@ MainTab:CreateButton({
     end,
 })
 
+MainTab:CreateSection("Physics & Combat Mechanics")
+
+local TouchFlingEnabled = false
+local TouchConnection = nil
+
+-- สวิตช์เปิด-ปิดระบบ Drop Kick / Touch Fling (เดินชนแล้วปลิว)
+MainTab:CreateToggle({
+    Name = "Drop Kick (แตะแล้วปลิว)",
+    CurrentValue = false,
+    Flag = "DropKickToggle",
+    Callback = function(Value)
+        TouchFlingEnabled = Value
+
+        if TouchFlingEnabled then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+
+                -- ตรวจจับการแตะ/ชน
+                TouchConnection = hrp.Touched:Connect(function(hit)
+                    if not TouchFlingEnabled then return end
+                    
+                    local targetChar = hit.Parent
+                    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+                    local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
+
+                    -- ตรวจสอบว่าตัวที่ชนเป็นผู้เล่นอื่น และไม่ใช่ตัวเราเอง
+                    if targetHrp and targetHumanoid and targetChar ~= char then
+                        -- คำนวณทิศทางแรงผลัก (ผลักไปข้างหน้า + ยกขึ้นฟ้า)
+                        local pushDirection = hrp.CFrame.LookVector * 150 + Vector3.new(0, 100, 0)
+                        
+                        -- ส่งแรงอัดให้เป้าหมายกระเด็นปลิว
+                        targetHrp.AssemblyLinearVelocity = pushDirection
+                    end
+                end)
+            end
+        else
+            if TouchConnection then
+                TouchConnection:Disconnect()
+                TouchConnection = nil
+            end
+        end
+    end,
+})
+
+-- ปุ่มเด้งขึ้นฟ้า
+MainTab:CreateButton({
+    Name = "Launch Upward (เด้งขึ้นฟ้า)",
+    Callback = function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, 150, hrp.AssemblyLinearVelocity.Z)
+        end
+    end,
+})
+
 --------------------------------------------------------
--- FPS SYSTEM TAB: Combat Mechanics
+-- FPS SYSTEM TAB
 --------------------------------------------------------
 FPSTab:CreateSection("Targeting System")
 
@@ -114,6 +164,7 @@ FPSTab:CreateToggle({
     Flag = "TargetLockToggle",
     Callback = function(Value)
         LockOnEnabled = Value
+        local Camera = workspace.CurrentCamera
 
         if LockOnEnabled then
             LockConnection = RunService.RenderStepped:Connect(function()
@@ -134,7 +185,7 @@ FPSTab:CreateToggle({
 })
 
 --------------------------------------------------------
--- SETTINGS TAB: Character Movement & External Scripts
+-- SETTINGS TAB
 --------------------------------------------------------
 SettingsTab:CreateSection("Movement Settings")
 
@@ -162,26 +213,6 @@ SettingsTab:CreateSlider({
     Callback = function(Value)
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
             LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = Value
-        end
-    end,
-})
-
-SettingsTab:CreateSection("External Utilities")
-
--- ปุ่มรัน Infinite Yield
-SettingsTab:CreateButton({
-    Name = "Run Infinite Yield",
-    Callback = function()
-        local success, err = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        end)
-        
-        if not success then
-            Rayfield:Notify({
-                Title = "Error",
-                Content = "Failed to load Infinite Yield",
-                Duration = 3
-            })
         end
     end,
 })
