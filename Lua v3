@@ -172,4 +172,5 @@ SettingsTab:CreateButton({
     Name = "Unload UI",
     Callback = function()
         Rayfield:Destroy()
-    enSETTINGSentent
+    end,
+})
