@@ -134,7 +134,7 @@ FPSTab:CreateToggle({
 })
 
 --------------------------------------------------------
--- SETTINGS TAB: Character Movement & UI Controls
+-- SETTINGS TAB: Character Movement & External Scripts
 --------------------------------------------------------
 SettingsTab:CreateSection("Movement Settings")
 
@@ -162,6 +162,26 @@ SettingsTab:CreateSlider({
     Callback = function(Value)
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
             LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = Value
+        end
+    end,
+})
+
+SettingsTab:CreateSection("External Utilities")
+
+-- ปุ่มรัน Infinite Yield
+SettingsTab:CreateButton({
+    Name = "Run Infinite Yield",
+    Callback = function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+        end)
+        
+        if not success then
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "Failed to load Infinite Yield",
+                Duration = 3
+            })
         end
     end,
 })
