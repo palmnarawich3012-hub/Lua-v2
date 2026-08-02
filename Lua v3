@@ -1,26 +1,50 @@
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/UI-Libraries/Rayfield/main/source.lua"))()
+-- ========================================================
+-- RAYFIELD LOADER (ระบบโหลดสำรอง ป้องกันรันไม่ติด)
+-- ========================================================
+local Rayfield = nil
+local success, err = pcall(function()
+    Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+end)
 
+if not success or not Rayfield then
+    -- ถ้าลิงก์หลักมีปัญหา ให้โหลดจาก GitHub โดยตรง
+    Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLTD/Rayfield/main/source.lua"))()
+end
+
+-- ========================================================
+-- WINDOW CREATION
+-- ========================================================
 local Window = Rayfield:CreateWindow({
     Name = "Admin / Dev Suite",
-    LoadingTitle = "Loading...",
+    Icon = 0,
+    LoadingTitle = "Loading System...",
     LoadingSubtitle = "by You",
-    ConfigurationSaving = { Enabled = false },
-    Discord = { Enabled = false },
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = "Config"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
     KeySystem = false
 })
 
 -- ========================================================
--- TABS
+-- TABS & SERVICES
 -- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
--- ========================================================
--- SERVICES
--- ========================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -33,10 +57,11 @@ MainTab:CreateSection("Shop & Rewards")
 MainTab:CreateButton({
     Name = "Claim Tutorial Money",
     Callback = function()
-        local replicatedStorage = game:GetService("ReplicatedStorage")
-        local remote = replicatedStorage:FindFirstChild("AwardTutorialMoney")
+        local remote = ReplicatedStorage:FindFirstChild("AwardTutorialMoney")
         if remote then
             remote:FireServer()
+        else
+            Rayfield:Notify({Title = "Error", Content = "AwardTutorialMoney not found!", Duration = 3})
         end
     end,
 })
@@ -44,23 +69,23 @@ MainTab:CreateButton({
 MainTab:CreateButton({
     Name = "Buy Magic Mushroom Seed",
     Callback = function()
-        local replicatedStorage = game:GetService("ReplicatedStorage")
-        local remote = replicatedStorage:FindFirstChild("BuySeedRequest")
+        local remote = ReplicatedStorage:FindFirstChild("BuySeedRequest")
         if remote then
             remote:FireServer("Magic Mushroom Seed", 0)
+        else
+            Rayfield:Notify({Title = "Error", Content = "BuySeedRequest not found!", Duration = 3})
         end
     end,
 })
 
 --------------------------------------------------------
--- SETTINGS TAB: Combat & Movement Settings
+-- SETTINGS TAB: Combat & Movement
 --------------------------------------------------------
 SettingsTab:CreateSection("Combat Settings")
 
 local LockOnEnabled = false
 local LockConnection = nil
 
--- ฟังก์ชันค้นหาผู้เล่นที่อยู่ใกล้ที่สุด
 local function GetClosestPlayer()
     local closestPart = nil
     local shortestDistance = 150
@@ -90,7 +115,6 @@ local function GetClosestPlayer()
     return closestPart
 end
 
--- สวิตช์เปิด-ปิด ล็อกเป้า
 SettingsTab:CreateToggle({
     Name = "Player Target Lock",
     CurrentValue = false,
@@ -118,7 +142,6 @@ SettingsTab:CreateToggle({
 
 SettingsTab:CreateSection("Movement Settings")
 
--- ปรับความเร็ว
 SettingsTab:CreateSlider({
     Name = "WalkSpeed",
     Range = {16, 200},
@@ -133,7 +156,6 @@ SettingsTab:CreateSlider({
     end,
 })
 
--- ปรับแรงกระโดด
 SettingsTab:CreateSlider({
     Name = "JumpPower",
     Range = {50, 300},
