@@ -1,0 +1,110 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "My Game Script",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "by You",
+    ConfigurationSaving = {
+        Enabled = false
+    },
+    Discord = {
+        Enabled = false
+    },
+    KeySystem = false
+})
+
+local Tab = Window:CreateTab("Main", 4483362458)
+
+--------------------------------------------------------
+-- Section: Shop & Rewards (หัวข้อ: ระบบร้านค้าและของรางวัล)
+--------------------------------------------------------
+Tab:CreateSection("Shop & Rewards")
+
+-- ปุ่มที่ 1: รับเงิน Tutorial
+Tab:CreateButton({
+    Name = "Claim Tutorial Money",
+    Callback = function()
+        game:GetService("ReplicatedStorage"):WaitForChild("AwardTutorialMoney"):FireServer()
+    end,
+})
+
+-- ปุ่มที่ 2: ซื้อ Magic Mushroom Seed
+Tab:CreateButton({
+    Name = "Buy Magic Mushroom Seed",
+    Callback = function()
+        local args = {
+            "Magic Mushroom Seed",
+            0
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("BuySeedRequest"):FireServer(unpack(args))
+    end,
+})
+
+--------------------------------------------------------
+-- Section: Combat Systems (หัวข้อ: ระบบต่อสู้)
+--------------------------------------------------------
+Tab:CreateSection("Combat Systems")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local LockOnEnabled = false
+local LockConnection = nil
+
+-- ฟังก์ชันค้นหาเป้าหมายที่ใกล้ที่สุด (NPC / Model)
+local function GetClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = 100 -- ระยะล็อกเป้าสูงสุด
+
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+
+    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+
+    for _, model in pairs(Workspace:GetChildren()) do
+        if model:IsA("Model") and model ~= LocalPlayer.Character then
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            local targetPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head")
+
+            if humanoid and humanoid.Health > 0 and targetPart then
+                local distance = (targetPart.Position - myPos).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestTarget = targetPart
+                end
+            end
+        end
+    end
+
+    return closestTarget
+end
+
+-- สวิตช์ เปิด-ปิด ระบบ Lock-on
+Tab:CreateToggle({
+    Name = "Target Lock-On (NPC/Enemies)",
+    CurrentValue = false,
+    Flag = "LockOnToggle",
+    Callback = function(Value)
+        LockOnEnabled = Value
+
+        if LockOnEnabled then
+            LockConnection = RunService.RenderStepped:Connect(function()
+                local target = GetClosestTarget()
+                if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local currentCFrame = Camera.CFrame
+                    local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+                    Camera.CFrame = currentCFrame:Lerp(targetCFrame, 0.15)
+                end
+            end)
+        else
+            if LockConnection then
+                LockConnection:Disconnect()
+                LockConnection = nil
+            end
+        end
+    end,
+})
