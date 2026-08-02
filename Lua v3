@@ -1,21 +1,14 @@
--- ========================================================
--- RAYFIELD LOADER (ระบบโหลดสำรอง ป้องกันรันไม่ติด)
--- ========================================================
 local Rayfield = nil
 local success, err = pcall(function()
     Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 end)
 
 if not success or not Rayfield then
-    -- ถ้าลิงก์หลักมีปัญหา ให้โหลดจาก GitHub โดยตรง
     Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/SiriusSoftwareLTD/Rayfield/main/source.lua"))()
 end
 
--- ========================================================
--- WINDOW CREATION
--- ========================================================
 local Window = Rayfield:CreateWindow({
-    Name = "Admin / Dev Suite",
+    Name = "My Game Suite",
     Icon = 0,
     LoadingTitle = "Loading System...",
     LoadingSubtitle = "by You",
@@ -23,24 +16,24 @@ local Window = Rayfield:CreateWindow({
     DisableRayfieldPrompts = false,
     DisableBuildWarnings = false,
     ConfigurationSaving = {
-        Enabled = false,
-        FolderName = nil,
-        FileName = "Config"
+        Enabled = false
     },
     Discord = {
-        Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
+        Enabled = false
     },
     KeySystem = false
 })
 
 -- ========================================================
--- TABS & SERVICES
+-- TABS
 -- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
+local FPSTab = Window:CreateTab("FPS System", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
+-- ========================================================
+-- SERVICES & VARIABLES
+-- ========================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -61,7 +54,7 @@ MainTab:CreateButton({
         if remote then
             remote:FireServer()
         else
-            Rayfield:Notify({Title = "Error", Content = "AwardTutorialMoney not found!", Duration = 3})
+            Rayfield:Notify({Title = "Notice", Content = "AwardTutorialMoney not found!", Duration = 3})
         end
     end,
 })
@@ -73,15 +66,15 @@ MainTab:CreateButton({
         if remote then
             remote:FireServer("Magic Mushroom Seed", 0)
         else
-            Rayfield:Notify({Title = "Error", Content = "BuySeedRequest not found!", Duration = 3})
+            Rayfield:Notify({Title = "Notice", Content = "BuySeedRequest not found!", Duration = 3})
         end
     end,
 })
 
 --------------------------------------------------------
--- SETTINGS TAB: Combat & Movement
+-- FPS SYSTEM TAB: Combat Mechanics
 --------------------------------------------------------
-SettingsTab:CreateSection("Combat Settings")
+FPSTab:CreateSection("Targeting System")
 
 local LockOnEnabled = false
 local LockConnection = nil
@@ -115,10 +108,10 @@ local function GetClosestPlayer()
     return closestPart
 end
 
-SettingsTab:CreateToggle({
-    Name = "Player Target Lock",
+FPSTab:CreateToggle({
+    Name = "Camera Target Lock",
     CurrentValue = false,
-    Flag = "PlayerLockToggle",
+    Flag = "TargetLockToggle",
     Callback = function(Value)
         LockOnEnabled = Value
 
@@ -140,6 +133,9 @@ SettingsTab:CreateToggle({
     end,
 })
 
+--------------------------------------------------------
+-- SETTINGS TAB: Character Movement & UI Controls
+--------------------------------------------------------
 SettingsTab:CreateSection("Movement Settings")
 
 SettingsTab:CreateSlider({
@@ -176,5 +172,4 @@ SettingsTab:CreateButton({
     Name = "Unload UI",
     Callback = function()
         Rayfield:Destroy()
-    end,
-})
+    enSETTINGSentent
