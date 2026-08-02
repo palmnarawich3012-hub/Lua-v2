@@ -1,103 +1,158 @@
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/UI-Libraries/Rayfield/main/source.lua"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "palm scripts",
+    Name = "Admin / Dev Suite",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by อ้ายปวยหัวคาม",
+    LoadingSubtitle = "by You",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false
 })
 
+-- ========================================================
+-- TABS
+-- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
+-- ========================================================
+-- SERVICES
+-- ========================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
 --------------------------------------------------------
--- Section: Shop & Rewards
+-- MAIN TAB: Shop & Rewards
 --------------------------------------------------------
-
 MainTab:CreateSection("Shop & Rewards")
 
 MainTab:CreateButton({
     Name = "Claim Tutorial Money",
     Callback = function()
-        game:GetService("ReplicatedStorage"):WaitForChild("AwardTutorialMoney"):FireServer()
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local remote = replicatedStorage:FindFirstChild("AwardTutorialMoney")
+        if remote then
+            remote:FireServer()
+        end
     end,
 })
-
 
 MainTab:CreateButton({
     Name = "Buy Magic Mushroom Seed",
     Callback = function()
-
-        local args = {
-            "Magic Mushroom Seed",
-            0
-        }
-
-        game:GetService("ReplicatedStorage")
-        :WaitForChild("BuySeedRequest")
-        :FireServer(unpack(args))
-
+        local replicatedStorage = game:GetService("ReplicatedStorage")
+        local remote = replicatedStorage:FindFirstChild("BuySeedRequest")
+        if remote then
+            remote:FireServer("Magic Mushroom Seed", 0)
+        end
     end,
 })
 
-
 --------------------------------------------------------
--- Services
+-- SETTINGS TAB: Combat & Movement Settings
 --------------------------------------------------------
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-
-
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
-
-
-
---------------------------------------------------------
--- Player Lock System
---------------------------------------------------------
-
 SettingsTab:CreateSection("Combat Settings")
-
 
 local LockOnEnabled = false
 local LockConnection = nil
 
-
+-- ฟังก์ชันค้นหาผู้เล่นที่อยู่ใกล้ที่สุด
 local function GetClosestPlayer()
-
     local closestPart = nil
     local shortestDistance = 150
 
-
-    if not LocalPlayer.Character 
-    or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return nil
     end
 
+    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
 
-    local myPos =
-    LocalPlayer.Character.HumanoidRootPart.Position
-
-
-    for _,player in pairs(Players:GetPlayers()) do
-
-
-        if player ~= LocalPlayer 
-        and player.Character then
-
-
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
             local char = player.Character
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
 
-            local humanoid =
-            char:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 and targetPart then
+                local distance = (targetPart.Position - myPos).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestPart = targetPart
+                end
+            end
+        end
+    end
 
+    return closestPart
+end
 
-            local targetPart =
-            char
+-- สวิตช์เปิด-ปิด ล็อกเป้า
+SettingsTab:CreateToggle({
+    Name = "Player Target Lock",
+    CurrentValue = false,
+    Flag = "PlayerLockToggle",
+    Callback = function(Value)
+        LockOnEnabled = Value
+
+        if LockOnEnabled then
+            LockConnection = RunService.RenderStepped:Connect(function()
+                local target = GetClosestPlayer()
+                if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local currentCFrame = Camera.CFrame
+                    local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+                    Camera.CFrame = currentCFrame:Lerp(targetCFrame, 0.2)
+                end
+            end)
+        else
+            if LockConnection then
+                LockConnection:Disconnect()
+                LockConnection = nil
+            end
+        end
+    end,
+})
+
+SettingsTab:CreateSection("Movement Settings")
+
+-- ปรับความเร็ว
+SettingsTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {16, 200},
+    Increment = 1,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "WalkSpeedSlider",
+    Callback = function(Value)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = Value
+        end
+    end,
+})
+
+-- ปรับแรงกระโดด
+SettingsTab:CreateSlider({
+    Name = "JumpPower",
+    Range = {50, 300},
+    Increment = 5,
+    Suffix = "Power",
+    CurrentValue = 50,
+    Flag = "JumpPowerSlider",
+    Callback = function(Value)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = Value
+        end
+    end,
+})
+
+SettingsTab:CreateSection("UI Controls")
+
+SettingsTab:CreateButton({
+    Name = "Unload UI",
+    Callback = function()
+        Rayfield:Destroy()
+    end,
+})
