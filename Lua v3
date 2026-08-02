@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "palm narawich scrips",
+    Name = "palm scripts",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by อ้ายปาล์ม",
+    LoadingSubtitle = "by อ้ายปวยหัวคาม",
     ConfigurationSaving = { Enabled = false },
     Discord = { Enabled = false },
     KeySystem = false
@@ -12,9 +12,11 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Main", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
+
 --------------------------------------------------------
 -- Section: Shop & Rewards
 --------------------------------------------------------
+
 MainTab:CreateSection("Shop & Rewards")
 
 MainTab:CreateButton({
@@ -24,38 +26,55 @@ MainTab:CreateButton({
     end,
 })
 
+
 MainTab:CreateButton({
     Name = "Buy Magic Mushroom Seed",
     Callback = function()
-        local args = { "Magic Mushroom Seed", 0 }
-        game:GetService("ReplicatedStorage"):WaitForChild("BuySeedRequest"):FireServer(unpack(args))
+
+        local args = {
+            "Magic Mushroom Seed",
+            0
+        }
+
+        game:GetService("ReplicatedStorage")
+        :WaitForChild("BuySeedRequest")
+        :FireServer(unpack(args))
+
     end,
 })
 
 
 --------------------------------------------------------
--- Section: Settings
+-- Services
 --------------------------------------------------------
-SettingsTab:CreateSection("Combat Settings")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+
+
+
+--------------------------------------------------------
+-- Player Lock System
+--------------------------------------------------------
+
+SettingsTab:CreateSection("Combat Settings")
+
 
 local LockOnEnabled = false
 local LockConnection = nil
 
 
---------------------------------------------------------
--- Find Closest Player Function
---------------------------------------------------------
 local function GetClosestPlayer()
 
     local closestPart = nil
     local shortestDistance = 150
+
 
     if not LocalPlayer.Character 
     or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -63,118 +82,22 @@ local function GetClosestPlayer()
     end
 
 
-    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+    local myPos =
+    LocalPlayer.Character.HumanoidRootPart.Position
 
 
-    for _, player in pairs(Players:GetPlayers()) do
+    for _,player in pairs(Players:GetPlayers()) do
 
-        if player ~= LocalPlayer and player.Character then
+
+        if player ~= LocalPlayer 
+        and player.Character then
+
 
             local char = player.Character
 
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-
-            local targetPart = char:FindFirstChild("Head") 
-            or char:FindFirstChild("HumanoidRootPart")
+            local humanoid =
+            char:FindFirstChildOfClass("Humanoid")
 
 
-            if humanoid 
-            and humanoid.Health > 0 
-            and targetPart then
-
-
-                local distance = 
-                (targetPart.Position - myPos).Magnitude
-
-
-                if distance < shortestDistance then
-
-                    shortestDistance = distance
-                    closestPart = targetPart
-
-                end
-            end
-        end
-    end
-
-
-    return closestPart
-end
-
-
-
---------------------------------------------------------
--- Player Target Lock Toggle
---------------------------------------------------------
-SettingsTab:CreateToggle({
-
-    Name = "Player Target Lock",
-
-    CurrentValue = false,
-
-    Flag = "PlayerLockToggle",
-
-
-    Callback = function(Value)
-
-
-        LockOnEnabled = Value
-
-
-
-        if LockOnEnabled then
-
-
-            LockConnection = RunService.RenderStepped:Connect(function()
-
-
-                local target = GetClosestPlayer()
-
-
-
-                if target 
-                and LocalPlayer.Character 
-                and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-
-
-
-                    local currentCFrame = Camera.CFrame
-
-
-                    local targetCFrame = 
-                    CFrame.new(
-                        Camera.CFrame.Position,
-                        target.Position
-                    )
-
-
-
-                    Camera.CFrame = 
-                    currentCFrame:Lerp(
-                        targetCFrame,
-                        0.2
-                    )
-
-                end
-
-            end)
-
-
-
-        else
-
-
-            if LockConnection then
-
-                LockConnection:Disconnect()
-
-                LockConnection = nil
-
-            end
-
-
-        end
-
-    end,
-
-})
+            local targetPart =
+            char
