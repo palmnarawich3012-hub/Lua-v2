@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "My Game Script",
+    Name = "palm Script",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by You",
+    LoadingSubtitle = "by อ้ายปาล์มสุดกัง",
     ConfigurationSaving = {
         Enabled = false
     },
