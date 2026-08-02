@@ -24,6 +24,7 @@ local Window = Rayfield:CreateWindow({
 -- TABS & SERVICES
 -- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
+local ESPTab = Window:CreateTab("ESP System", 4483362458)
 local FPSTab = Window:CreateTab("FPS System", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
@@ -35,9 +36,182 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 --------------------------------------------------------
--- MAIN TAB: Shop, Physics & Fling Mechanics
+-- MAIN TAB: Essential Features & Combat Tools
 --------------------------------------------------------
-MainTab:CreateSection("Shop & Rewards")
+MainTab:CreateSection("Admin & Scripts")
+
+MainTab:CreateButton({
+    Name = "Execute Infinite Yield",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+        Rayfield:Notify({Title = "Success", Content = "Infinite Yield Executed!", Duration = 3})
+    end,
+})
+
+MainTab:CreateSection("Combat & Hitbox")
+
+local Hitbox_Enabled = false
+local Hitbox_Size = 10
+local HitboxConnection = nil
+
+MainTab:CreateToggle({
+    Name = "Enable Hitbox Extender",
+    CurrentValue = false,
+    Flag = "MainHitboxToggle",
+    Callback = function(Value)
+        Hitbox_Enabled = Value
+
+        if Hitbox_Enabled then
+            HitboxConnection = RunService.RenderStepped:Connect(function()
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        local isTeammate = (player.Team ~= nil and player.Team == LocalPlayer.Team)
+                        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+
+                        if hrp and not isTeammate then
+                            hrp.Size = Vector3.new(Hitbox_Size, Hitbox_Size, Hitbox_Size)
+                            hrp.Transparency = 0.7
+                            hrp.BrickColor = BrickColor.new("Really red")
+                            hrp.Material = Enum.Material.Neon
+                            hrp.CanCollide = false
+                        elseif hrp and isTeammate then
+                            hrp.Size = Vector3.new(2, 2, 1)
+                            hrp.Transparency = 1
+                        end
+                    end
+                end
+            end)
+        else
+            if HitboxConnection then
+                HitboxConnection:Disconnect()
+                HitboxConnection = nil
+            end
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.Size = Vector3.new(2, 2, 1)
+                        hrp.Transparency = 1
+                    end
+                end
+            end
+        end
+    end,
+})
+
+MainTab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {2, 50},
+    Increment = 1,
+    Suffix = "Studs",
+    CurrentValue = 10,
+    Flag = "MainHitboxSizeSlider",
+    Callback = function(Value)
+        Hitbox_Size = Value
+    end,
+})
+
+MainTab:CreateSection("Movement Perks")
+
+local NoclipEnabled = false
+local NoclipConnection = nil
+
+MainTab:CreateToggle({
+    Name = "Noclip (Walk Through Walls)",
+    CurrentValue = false,
+    Flag = "MainNoclipToggle",
+    Callback = function(Value)
+        NoclipEnabled = Value
+
+        if NoclipEnabled then
+            NoclipConnection = RunService.Stepped:Connect(function()
+                if LocalPlayer.Character then
+                    for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        else
+            if NoclipConnection then
+                NoclipConnection:Disconnect()
+                NoclipConnection = nil
+            end
+            if LocalPlayer.Character then
+                for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+    end,
+})
+
+MainTab:CreateSection("Fling System")
+
+local hiddenfling = false
+local flingLoop = nil
+
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local detection = Instance.new("Decal")
+    detection.Name = "juisdfj0i32i0eidsuf0iok"
+    detection.Parent = ReplicatedStorage
+end
+
+MainTab:CreateToggle({
+    Name = "Touch Fling (Safe Mode)",
+    CurrentValue = false,
+    Flag = "TouchFlingToggle",
+    Callback = function(Value)
+        hiddenfling = Value
+
+        if hiddenfling then
+            flingLoop = task.spawn(function()
+                local movel = 0.1
+                while hiddenfling do
+                    RunService.Heartbeat:Wait()
+                    local c = LocalPlayer.Character
+                    local hrp = c and c:FindFirstChild("HumanoidRootPart")
+
+                    if c and hrp then
+                        for _, part in ipairs(c:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                            end
+                        end
+
+                        local vel = hrp.Velocity
+                        hrp.Velocity = vel * 1000 + Vector3.new(0, 1000, 0)
+                        RunService.RenderStepped:Wait()
+                        hrp.Velocity = vel
+                        RunService.Stepped:Wait()
+                        hrp.Velocity = vel + Vector3.new(0, movel, 0)
+                        movel = -movel
+                    end
+                end
+            end)
+        else
+            hiddenfling = false
+            if flingLoop then
+                task.cancel(flingLoop)
+                flingLoop = nil
+            end
+            
+            local c = LocalPlayer.Character
+            if c then
+                for _, part in ipairs(c:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+    end,
+})
+
+MainTab:CreateSection("Grow a Mushroom")
 
 MainTab:CreateButton({
     Name = "Claim Tutorial Money",
@@ -63,85 +237,134 @@ MainTab:CreateButton({
     end,
 })
 
-MainTab:CreateSection("Fling System")
+--------------------------------------------------------
+-- ESP SYSTEM TAB (พร้อมระบบ Team Check)
+--------------------------------------------------------
+ESPTab:CreateSection("Player ESP Controls")
 
-local hiddenfling = false
-local flingLoop = nil
+local ESP_Enabled = false
+local TeamCheck_Enabled = false
+local ESP_Boxes = {}
 
--- สร้าง Decal ตรวจจับความปลอดภัยแบบเดิม
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-    local detection = Instance.new("Decal")
-    detection.Name = "juisdfj0i32i0eidsuf0iok"
-    detection.Parent = ReplicatedStorage
+local function RemoveESP(player)
+    if ESP_Boxes[player] then
+        if ESP_Boxes[player].Highlight then ESP_Boxes[player].Highlight:Destroy() end
+        if ESP_Boxes[player].Billboard then ESP_Boxes[player].Billboard:Destroy() end
+        ESP_Boxes[player] = nil
+    end
 end
 
-MainTab:CreateToggle({
-    Name = "Touch Fling",
-    CurrentValue = false,
-    Flag = "TouchFlingToggle",
-    Callback = function(Value)
-        hiddenfling = Value
+local function ApplyESP(player)
+    if player == LocalPlayer then return end
 
-        if hiddenfling then
-            flingLoop = task.spawn(function()
-                local movel = 0.1
-                while hiddenfling do
-                    RunService.Heartbeat:Wait()
-                    local c = LocalPlayer.Character
-                    local hrp = c and c:FindFirstChild("HumanoidRootPart")
+    local function CharacterAdded(character)
+        RemoveESP(player)
+        if not ESP_Enabled then return end
 
-                    if hrp then
-                        local vel = hrp.Velocity
-                        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-                        RunService.RenderStepped:Wait()
-                        hrp.Velocity = vel
-                        RunService.Stepped:Wait()
-                        hrp.Velocity = vel + Vector3.new(0, movel, 0)
-                        movel = -movel
-                    end
+        if TeamCheck_Enabled and player.Team ~= nil and player.Team == LocalPlayer.Team then
+            return
+        end
+
+        local hrp = character:WaitForChild("HumanoidRootPart", 5)
+        local humanoid = character:WaitForChild("Humanoid", 5)
+
+        if hrp and humanoid then
+            local isSameTeam = (player.Team ~= nil and player.Team == LocalPlayer.Team)
+            local boxColor = isSameTeam and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESPHighlight"
+            highlight.Adornee = character
+            highlight.FillColor = boxColor
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.OutlineTransparency = 0
+            highlight.Parent = character
+
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESPName"
+            billboard.Adornee = hrp
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Parent = billboard
+            nameLabel.Size = UDim2.new(1, 0, 1, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = boxColor
+            nameLabel.TextStrokeTransparency = 0
+            nameLabel.TextSize = 14
+            nameLabel.Font = Enum.Font.SourceSansBold
+
+            local function updateText()
+                if humanoid and humanoid.Health > 0 then
+                    nameLabel.Text = string.format("%s | HP: %d/%d", player.Name, math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+                else
+                    nameLabel.Text = player.Name .. " [DEAD]"
                 end
-            end)
-        else
-            hiddenfling = false
-            if flingLoop then
-                task.cancel(flingLoop)
-                flingLoop = nil
             end
+
+            updateText()
+            humanoid.HealthChanged:Connect(updateText)
+            billboard.Parent = character
+
+            ESP_Boxes[player] = {
+                Highlight = highlight,
+                Billboard = billboard
+            }
         end
-    end,
-})
+    end
 
-MainTab:CreateSection("Launch System (R6 / R15 Supported)")
+    if player.Character then
+        task.spawn(function() CharacterAdded(player.Character) end)
+    end
+    player.CharacterAdded:Connect(CharacterAdded)
+end
 
-local launchPower = 100
-local animAssetId = "" 
+local function RefreshESP()
+    for player, _ in pairs(ESP_Boxes) do
+        RemoveESP(player)
+    end
+    if ESP_Enabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            ApplyESP(player)
+        end
+    end
+end
 
-MainTab:CreateSlider({
-    Name = "Launch Force Power",
-    Range = {10, 500},
-    Increment = 10,
-    Suffix = "Power",
-    CurrentValue = 100,
-    Flag = "LaunchForceSlider",
+ESPTab:CreateToggle({
+    Name = "Enable Player ESP",
+    CurrentValue = false,
+    Flag = "PlayerESPToggle",
     Callback = function(Value)
-        launchPower = Value
+        ESP_Enabled = Value
+        RefreshESP()
     end,
 })
 
-MainTab:CreateButton({
-    Name = "Activate Launch / Knockback",
-    Callback = function()
-        local launchEvent = ReplicatedStorage:FindFirstChild("LaunchEvent")
-        if launchEvent then
-            launchEvent:FireServer(launchPower, animAssetId)
-        else
-            Rayfield:Notify({Title = "Error", Content = "LaunchEvent missing in ReplicatedStorage!", Duration = 3})
-        end
+ESPTab:CreateToggle({
+    Name = "Team Check (Hide Teammates)",
+    CurrentValue = false,
+    Flag = "TeamCheckToggle",
+    Callback = function(Value)
+        TeamCheck_Enabled = Value
+        RefreshESP()
     end,
 })
+
+Players.PlayerAdded:Connect(function(player)
+    if ESP_Enabled then
+        ApplyESP(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    RemoveESP(player)
+end)
 
 --------------------------------------------------------
--- FPS SYSTEM TAB: Camera Target Lock
+-- FPS SYSTEM TAB: Targeting System
 --------------------------------------------------------
 FPSTab:CreateSection("Targeting System")
 
@@ -160,15 +383,17 @@ local function GetClosestPlayer()
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            local char = player.Character
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+            if not (player.Team ~= nil and player.Team == LocalPlayer.Team) then
+                local char = player.Character
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
 
-            if humanoid and humanoid.Health > 0 and targetPart then
-                local distance = (targetPart.Position - myPos).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestPart = targetPart
+                if humanoid and humanoid.Health > 0 and targetPart then
+                    local distance = (targetPart.Position - myPos).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestPart = targetPart
+                    end
                 end
             end
         end
@@ -203,8 +428,18 @@ FPSTab:CreateToggle({
 })
 
 --------------------------------------------------------
--- SETTINGS TAB: Character Movement & UI Controls
+-- SETTINGS TAB: Character Movement & Extra Hubs
 --------------------------------------------------------
+SettingsTab:CreateSection("External Hubs")
+
+SettingsTab:CreateButton({
+    Name = "Execute Ghost Hub",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/Test4/main/GhostHub'))()
+        Rayfield:Notify({Title = "Success", Content = "Ghost Hub Executed!", Duration = 3})
+    end,
+})
+
 SettingsTab:CreateSection("Movement Settings")
 
 SettingsTab:CreateSlider({
@@ -240,6 +475,11 @@ SettingsTab:CreateSection("UI Controls")
 SettingsTab:CreateButton({
     Name = "Unload UI",
     Callback = function()
+        if NoclipConnection then NoclipConnection:Disconnect() end
+        if HitboxConnection then HitboxConnection:Disconnect() end
+        for player, _ in pairs(ESP_Boxes) do
+            RemoveESP(player)
+        end
         Rayfield:Destroy()
     end,
 })
