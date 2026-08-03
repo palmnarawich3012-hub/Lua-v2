@@ -34,21 +34,21 @@ local SettingsTab = Window:CreateTab("Settings", 4483362458)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
 --------------------------------------------------------
--- GUI TOGGLE (กดปุ่ม LeftControl เพื่อเปิด-ปิด Rayfield UI)
+-- GUI TOGGLE & RAYFIELD MINIMIZE SYSTEM (PC & Mobile Support)
 --------------------------------------------------------
 local guiVisible = true
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.LeftControl then
         guiVisible = not guiVisible
-        local coreGui = game:GetService("CoreGui")
-        local rayfieldGui = coreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+        local rayfieldGui = CoreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
         if rayfieldGui then
             local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
             if mainFrame then
@@ -58,9 +58,360 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
+-- เพิ่มปุ่มย่อ/ขยาย (Minimize) รองรับทั้งเมาส์และนิ้วสัมผัสมือถือ
+task.spawn(function()
+    task.wait(1)
+    local rayfieldGui = CoreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+    if rayfieldGui then
+        local topBar = rayfieldGui:FindFirstChild("TopBar", true) or rayfieldGui:FindFirstChild("Header", true)
+        if topBar then
+            local minBtn = Instance.new("TextButton")
+            minBtn.Name = "MinimizeButton"
+            minBtn.Parent = topBar
+            minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            minBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            minBtn.Position = UDim2.new(1, -65, 0, 5)
+            minBtn.Size = UDim2.new(0, 30, 0, 25)
+            minBtn.Font = Enum.Font.SourceSansBold
+            minBtn.Text = "-"
+            minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            minBtn.TextSize = 16.000
+            minBtn.ZIndex = 100
+
+            local isMinimized = false
+            local function toggleRayfieldMinimize()
+                isMinimized = not isMinimized
+                minBtn.Text = isMinimized and "+" or "-"
+                local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
+                if mainFrame then
+                    for _, child in ipairs(mainFrame:GetChildren()) do
+                        if child ~= topBar and child.Name ~= "TopBar" and child.Name ~= "Header" then
+                            if child:IsA("GuiObject") then
+                                child.Visible = not isMinimized
+                            end
+                        end
+                    end
+                end
+            end
+
+            minBtn.MouseButton1Click:Connect(toggleRayfieldMinimize)
+            minBtn.TouchTap:Connect(toggleRayfieldMinimize)
+        end
+    end
+end)
+
 --------------------------------------------------------
--- MAIN TAB (Tool Giver, Fly V3, Player Fling & Admin)
+-- CUSTOM EXECUTOR UI (รองรับทั้งคอมและมือถือ 100%)
 --------------------------------------------------------
+local ExecGui = Instance.new("ScreenGui")
+local ExecFrame = Instance.new("Frame")
+local ExecTitle = Instance.new("TextLabel")
+local ExecCloseBtn = Instance.new("TextButton")
+local ExecMinBtn = Instance.new("TextButton")
+local ExecTextBox = Instance.new("TextBox")
+local ExecRunBtn = Instance.new("TextButton")
+local ExecClearBtn = Instance.new("TextButton")
+local ExecSaveBtn = Instance.new("TextButton")
+local ExecOpenBtn = Instance.new("TextButton")
+local ExecFileNameBox = Instance.new("TextBox")
+
+local ExecFileScroll = Instance.new("ScrollingFrame")
+local ExecFileListLayout = Instance.new("UIListLayout")
+local ExecFileDropdownBtn = Instance.new("TextButton")
+
+ExecGui.Name = "CustomExecutorUI"
+ExecGui.Parent = CoreGui
+ExecGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ExecGui.ResetOnSpawn = false
+ExecGui.Enabled = false
+
+ExecFrame.Name = "MainFrame"
+ExecFrame.Parent = ExecGui
+ExecFrame.Active = true
+ExecFrame.Draggable = true
+ExecFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ExecFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
+ExecFrame.Position = UDim2.new(0.3, 0, 0.2, 0)
+ExecFrame.Size = UDim2.new(0, 520, 0, 350)
+
+ExecTitle.Name = "Title"
+ExecTitle.Parent = ExecFrame
+ExecTitle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+ExecTitle.Size = UDim2.new(1, 0, 0, 35)
+ExecTitle.Font = Enum.Font.SourceSansBold
+ExecTitle.Text = "  Custom Lua Script Executor"
+ExecTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecTitle.TextSize = 14.000
+ExecTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ปุ่มปิด (X) รองรับมือถือ
+ExecCloseBtn.Name = "CloseButton"
+ExecCloseBtn.Parent = ExecTitle
+ExecCloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ExecCloseBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+ExecCloseBtn.Position = UDim2.new(1, -32, 0, 5)
+ExecCloseBtn.Size = UDim2.new(0, 26, 0, 25)
+ExecCloseBtn.Font = Enum.Font.SourceSansBold
+ExecCloseBtn.Text = "X"
+ExecCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecCloseBtn.TextSize = 14.000
+
+-- ปุ่มย่อ/ขยายหน้าต่าง (Minimize) รองรับมือถือ
+ExecMinBtn.Name = "MinimizeButton"
+ExecMinBtn.Parent = ExecTitle
+ExecMinBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+ExecMinBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+ExecMinBtn.Position = UDim2.new(1, -64, 0, 5)
+ExecMinBtn.Size = UDim2.new(0, 26, 0, 25)
+ExecMinBtn.Font = Enum.Font.SourceSansBold
+ExecMinBtn.Text = "-"
+ExecMinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecMinBtn.TextSize = 16.000
+
+ExecFileNameBox.Name = "FileNameInput"
+ExecFileNameBox.Parent = ExecFrame
+ExecFileNameBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ExecFileNameBox.BorderColor3 = Color3.fromRGB(50, 50, 50)
+ExecFileNameBox.Position = UDim2.new(0.03, 0, 0.13, 0)
+ExecFileNameBox.Size = UDim2.new(0.53, 0, 0.08, 0)
+ExecFileNameBox.ClearTextOnFocus = false
+ExecFileNameBox.Font = Enum.Font.SourceSans
+ExecFileNameBox.PlaceholderText = "ชื่อไฟล์ (เช่น myscript.lua)"
+ExecFileNameBox.Text = "myscript.lua"
+ExecFileNameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecFileNameBox.TextSize = 14.000
+
+ExecFileDropdownBtn.Name = "DropdownToggle"
+ExecFileDropdownBtn.Parent = ExecFrame
+ExecFileDropdownBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ExecFileDropdownBtn.BorderColor3 = Color3.fromRGB(70, 70, 70)
+ExecFileDropdownBtn.Position = UDim2.new(0.58, 0, 0.13, 0)
+ExecFileDropdownBtn.Size = UDim2.new(0.39, 0, 0.08, 0)
+ExecFileDropdownBtn.Font = Enum.Font.SourceSansBold
+ExecFileDropdownBtn.Text = "📁 เลือกไฟล์ ▼"
+ExecFileDropdownBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecFileDropdownBtn.TextSize = 13.000
+
+ExecFileScroll.Name = "FileDropdownList"
+ExecFileScroll.Parent = ExecFrame
+ExecFileScroll.Active = true
+ExecFileScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ExecFileScroll.BorderColor3 = Color3.fromRGB(60, 60, 60)
+ExecFileScroll.Position = UDim2.new(0.58, 0, 0.22, 0)
+ExecFileScroll.Size = UDim2.new(0.39, 0, 0.35, 0)
+ExecFileScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+ExecFileScroll.Visible = false
+ExecFileScroll.ZIndex = 5
+
+ExecFileListLayout.Parent = ExecFileScroll
+ExecFileListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+ExecTextBox.Name = "ScriptInput"
+ExecTextBox.Parent = ExecFrame
+ExecTextBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ExecTextBox.BorderColor3 = Color3.fromRGB(50, 50, 50)
+ExecTextBox.Position = UDim2.new(0.03, 0, 0.23, 0)
+ExecTextBox.Size = UDim2.new(0.53, 0, 0.57, 0)
+ExecTextBox.ClearTextOnFocus = false
+ExecTextBox.MultiLine = true
+ExecTextBox.Font = Enum.Font.Code
+ExecTextBox.PlaceholderText = "-- พิมพ์โค้ด Lua ที่นี่..."
+ExecTextBox.Text = "-- พิมพ์โค้ด Lua ที่ต้องการรันที่นี่\nprint('Hello from Custom Executor UI!')"
+ExecTextBox.TextColor3 = Color3.fromRGB(0, 255, 128)
+ExecTextBox.TextSize = 14.000
+ExecTextBox.TextXAlignment = Enum.TextXAlignment.Left
+ExecTextBox.TextYAlignment = Enum.TextYAlignment.Top
+
+ExecRunBtn.Name = "RunButton"
+ExecRunBtn.Parent = ExecFrame
+ExecRunBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+ExecRunBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+ExecRunBtn.Position = UDim2.new(0.03, 0, 0.83, 0)
+ExecRunBtn.Size = UDim2.new(0.22, 0, 0.13, 0)
+ExecRunBtn.Font = Enum.Font.SourceSansBold
+ExecRunBtn.Text = "Execute"
+ExecRunBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecRunBtn.TextSize = 14.000
+
+ExecClearBtn.Name = "ClearButton"
+ExecClearBtn.Parent = ExecFrame
+ExecClearBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+ExecClearBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+ExecClearBtn.Position = UDim2.new(0.27, 0, 0.83, 0)
+ExecClearBtn.Size = UDim2.new(0.22, 0, 0.13, 0)
+ExecClearBtn.Font = Enum.Font.SourceSansBold
+ExecClearBtn.Text = "Clear"
+ExecClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecClearBtn.TextSize = 14.000
+
+ExecSaveBtn.Name = "SaveButton"
+ExecSaveBtn.Parent = ExecFrame
+ExecSaveBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
+ExecSaveBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+ExecSaveBtn.Position = UDim2.new(0.51, 0, 0.83, 0)
+ExecSaveBtn.Size = UDim2.new(0.22, 0, 0.13, 0)
+ExecSaveBtn.Font = Enum.Font.SourceSansBold
+ExecSaveBtn.Text = "Save"
+ExecSaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecSaveBtn.TextSize = 14.000
+
+ExecOpenBtn.Name = "OpenButton"
+ExecOpenBtn.Parent = ExecFrame
+ExecOpenBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 0)
+ExecOpenBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+ExecOpenBtn.Position = UDim2.new(0.75, 0, 0.83, 0)
+ExecOpenBtn.Size = UDim2.new(0.22, 0, 0.13, 0)
+ExecOpenBtn.Font = Enum.Font.SourceSansBold
+ExecOpenBtn.Text = "Open"
+ExecOpenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecOpenBtn.TextSize = 14.000
+
+-- ฟังก์ชันระบบย่อ/ขยาย Custom Executor รองรับทั้งเมาส์และมือถือ
+local isExecMinimized = false
+local function toggleExecMinimize()
+    isExecMinimized = not isExecMinimized
+    ExecMinBtn.Text = isExecMinimized and "+" or "-"
+    
+    ExecFileNameBox.Visible = not isExecMinimized
+    ExecFileDropdownBtn.Visible = not isExecMinimized
+    ExecFileScroll.Visible = false
+    ExecTextBox.Visible = not isExecMinimized
+    ExecRunBtn.Visible = not isExecMinimized
+    ExecClearBtn.Visible = not isExecMinimized
+    ExecSaveBtn.Visible = not isExecMinimized
+    ExecOpenBtn.Visible = not isExecMinimized
+    
+    if isExecMinimized then
+        ExecFrame.Size = UDim2.new(0, 520, 0, 35)
+    else
+        ExecFrame.Size = UDim2.new(0, 520, 0, 350)
+    end
+end
+
+ExecMinBtn.MouseButton1Click:Connect(toggleExecMinimize)
+ExecMinBtn.TouchTap:Connect(toggleExecMinimize)
+
+-- ฟังก์ชันดรอปดาวน์เลือกไฟล์
+local function RefreshFileList()
+    for _, v in pairs(ExecFileScroll:GetChildren()) do
+        if v:IsA("TextButton") then v:Destroy() end
+    end
+    
+    local files = {}
+    if listfiles then
+        pcall(function()
+            for _, file in ipairs(listfiles("")) do
+                local cleanName = file:match("^.+[/\\]([^/\\]+)$") or file
+                table.insert(files, cleanName)
+            end
+        end)
+    end
+    
+    if #files == 0 then table.insert(files, "ไม่พบไฟล์ในระบบ") end
+    
+    for _, fileName in ipairs(files) do
+        local fileBtn = Instance.new("TextButton")
+        fileBtn.Parent = ExecFileScroll
+        fileBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        fileBtn.BorderColor3 = Color3.fromRGB(50, 50, 50)
+        fileBtn.Size = UDim2.new(1, 0, 0, 28)
+        fileBtn.Font = Enum.Font.SourceSans
+        fileBtn.Text = "  " .. fileName
+        fileBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+        fileBtn.TextSize = 13.000
+        fileBtn.TextXAlignment = Enum.TextXAlignment.Left
+        fileBtn.ZIndex = 6
+        
+        local function selectFileAction()
+            if fileName ~= "ไม่พบไฟล์ในระบบ" then
+                ExecFileNameBox.Text = fileName
+                if readfile and isfile and isfile(fileName) then
+                    local success, content = pcall(function() return readfile(fileName) end)
+                    if success then
+                        ExecTextBox.Text = content
+                        Rayfield:Notify({Title = "File Manager", Content = "โหลดไฟล์ " .. fileName .. " สำเร็จ!", Duration = 2})
+                    end
+                end
+            end
+            ExecFileScroll.Visible = false
+        end
+        
+        fileBtn.MouseButton1Click:Connect(selectFileAction)
+        fileBtn.TouchTap:Connect(selectFileAction)
+    end
+    ExecFileScroll.CanvasSize = UDim2.new(0, 0, 0, #files * 28)
+end
+
+local function toggleDropdownMenu()
+    ExecFileScroll.Visible = not ExecFileScroll.Visible
+    if ExecFileScroll.Visible then RefreshFileList() end
+end
+
+ExecFileDropdownBtn.MouseButton1Click:Connect(toggleDropdownMenu)
+ExecFileDropdownBtn.TouchTap:Connect(toggleDropdownMenu)
+
+ExecSaveBtn.MouseButton1Click:Connect(function()
+    local fileName = ExecFileNameBox.Text
+    if fileName == "" then fileName = "script.lua" end
+    if writefile then
+        local success, err = pcall(function() writefile(fileName, ExecTextBox.Text) end)
+        if success then
+            Rayfield:Notify({Title = "Executor", Content = "บันทึกไฟล์ " .. fileName .. " สำเร็จ!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Error", Content = "บันทึกไม่สำเร็จ: " .. tostring(err), Duration = 4})
+        end
+    else
+        Rayfield:Notify({Title = "Error", Content = "Executor ไม่รองรับ writefile!", Duration = 4})
+    end
+end)
+
+ExecOpenBtn.MouseButton1Click:Connect(function()
+    local fileName = ExecFileNameBox.Text
+    if fileName == "" then fileName = "script.lua" end
+    if readfile and isfile then
+        local success, result = pcall(function()
+            if isfile(fileName) then return readfile(fileName) else error("ไม่พบไฟล์") end
+        end)
+        if success then
+            ExecTextBox.Text = result
+            Rayfield:Notify({Title = "Executor", Content = "เปิดไฟล์สำเร็จ!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Error", Content = tostring(result), Duration = 4})
+        end
+    else
+        Rayfield:Notify({Title = "Error", Content = "Executor ไม่รองรับ readfile!", Duration = 4})
+    end
+end)
+
+ExecClearBtn.MouseButton1Click:Connect(function() ExecTextBox.Text = "" end)
+ExecCloseBtn.MouseButton1Click:Connect(function() ExecGui.Enabled = false; ExecFileScroll.Visible = false end)
+
+ExecRunBtn.MouseButton1Click:Connect(function()
+    local success, err = pcall(function()
+        local func, loadErr = loadstring(ExecTextBox.Text)
+        if func then func() else error(loadErr) end
+    end)
+    if success then
+        Rayfield:Notify({Title = "Executor", Content = "รันสคริปต์สำเร็จ!", Duration = 3})
+    else
+        Rayfield:Notify({Title = "Executor Error", Content = tostring(err), Duration = 5})
+    end
+end)
+
+--------------------------------------------------------
+-- MAIN TAB
+--------------------------------------------------------
+MainTab:CreateSection("Executor UI System")
+
+MainTab:CreateButton({
+    Name = "Open Custom Executor UI",
+    Callback = function()
+        ExecGui.Enabled = not ExecGui.Enabled
+        if not ExecGui.Enabled then ExecFileScroll.Visible = false end
+        Rayfield:Notify({Title = "Executor", Content = "เปิด/ปิด หน้าต่าง Executor UI แล้ว!", Duration = 2})
+    end,
+})
+
 MainTab:CreateSection("Movement & Exploits (Fly & Fling)")
 
 -- Fly V3 Variables & Logic
@@ -91,28 +442,15 @@ local function startFly()
 
     flyConnection = RunService.RenderStepped:Connect(function()
         if not flying or not char or not hrp.Parent then return end
-        
         local camCFrame = Camera.CFrame
         local moveDir = Vector3.new(0, 0, 0)
 
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDir = moveDir + camCFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDir = moveDir - camCFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDir = moveDir - camCFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDir = moveDir + camCFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDir = moveDir + Vector3.new(0, 1, 0)
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-            moveDir = moveDir - Vector3.new(0, 1, 0)
-        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
 
         bv.Velocity = moveDir * flySpeed
         bg.CFrame = camCFrame
@@ -121,19 +459,13 @@ end
 
 local function stopFly()
     flying = false
-    if flyConnection then
-        flyConnection:Disconnect()
-        flyConnection = nil
-    end
+    if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
     if bv then bv:Destroy() end
     if bg then bg:Destroy() end
-
     local char = LocalPlayer.Character
     if char then
         local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
+        if humanoid then humanoid.PlatformStand = false end
     end
 end
 
@@ -142,13 +474,8 @@ MainTab:CreateToggle({
     CurrentValue = false,
     Flag = "FlyToggleMain",
     Callback = function(Value)
-        if Value then
-            startFly()
-            Rayfield:Notify({Title = "Fly V3", Content = "Fly Activated! (Use W, A, S, D, Space, Shift)", Duration = 3})
-        else
-            stopFly()
-            Rayfield:Notify({Title = "Fly V3", Content = "Fly Deactivated!", Duration = 2})
-        end
+        if Value then startFly(); Rayfield:Notify({Title = "Fly V3", Content = "Fly Activated!", Duration = 3})
+        else stopFly(); Rayfield:Notify({Title = "Fly V3", Content = "Fly Deactivated!", Duration = 2}) end
     end,
 })
 
@@ -159,39 +486,12 @@ MainTab:CreateSlider({
     Suffix = "Speed",
     CurrentValue = 50,
     Flag = "FlySpeedSliderMain",
-    Callback = function(Value)
-        flySpeed = Value
-    end,
+    Callback = function(Value) flySpeed = Value end,
 })
 
--- Player Fling Variables & Logic
+-- Player Fling
 local flinging = false
 local flingConnection = nil
-
-local function startFling()
-    flinging = true
-    flingConnection = RunService.Heartbeat:Connect(function()
-        if not flinging then return end
-        local char = LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-        local hrp = char.HumanoidRootPart
-        
-        local vel = hrp.Velocity
-        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-        RunService.RenderStepped:Wait()
-        if hrp and hrp.Parent then
-            hrp.Velocity = vel
-        end
-    end)
-end
-
-local function stopFling()
-    flinging = false
-    if flingConnection then
-        flingConnection:Disconnect()
-        flingConnection = nil
-    end
-end
 
 MainTab:CreateToggle({
     Name = "Enable Player Fling",
@@ -199,10 +499,21 @@ MainTab:CreateToggle({
     Flag = "FlingToggleMain",
     Callback = function(Value)
         if Value then
-            startFling()
-            Rayfield:Notify({Title = "Player Fling", Content = "Fling Activated! (Walk into players to fling them)", Duration = 3})
+            flinging = true
+            flingConnection = RunService.Heartbeat:Connect(function()
+                if not flinging then return end
+                local char = LocalPlayer.Character
+                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                local hrp = char.HumanoidRootPart
+                local vel = hrp.Velocity
+                hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+                RunService.RenderStepped:Wait()
+                if hrp and hrp.Parent then hrp.Velocity = vel end
+            end)
+            Rayfield:Notify({Title = "Player Fling", Content = "Fling Activated!", Duration = 3})
         else
-            stopFling()
+            flinging = false
+            if flingConnection then flingConnection:Disconnect(); flingConnection = nil end
             Rayfield:Notify({Title = "Player Fling", Content = "Fling Deactivated!", Duration = 2})
         end
     end,
@@ -218,7 +529,7 @@ local GhostTextButton = Instance.new("TextButton")
 local GhostTextLabel = Instance.new("TextLabel")
 local GhostUpdateBtn = Instance.new("TextButton")
 
-GhostScreenGui.Parent = game:GetService("CoreGui")
+GhostScreenGui.Parent = CoreGui
 GhostScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GhostScreenGui.ResetOnSpawn = false
 GhostScreenGui.Enabled = false 
@@ -227,14 +538,14 @@ GhostFrame.Parent = GhostScreenGui
 GhostFrame.Active = true
 GhostFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 GhostFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-GhostFrame.Position = UDim2.new(0.0610425249, 0, 0.0939490423, 0)
+GhostFrame.Position = UDim2.new(0.06, 0, 0.09, 0)
 GhostFrame.Size = UDim2.new(0, 218, 0, 225)
 
 GhostScrollingFrame.Parent = GhostFrame
 GhostScrollingFrame.Active = true
 GhostScrollingFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 GhostScrollingFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-GhostScrollingFrame.Position = UDim2.new(0.0871559605, 0, 0.155555561, 0)
+GhostScrollingFrame.Position = UDim2.new(0.08, 0, 0.15, 0)
 GhostScrollingFrame.Size = UDim2.new(0, 187, 0, 136)
 GhostScrollingFrame.CanvasSize = UDim2.new(0, 0, 35, 0)
 
@@ -249,14 +560,10 @@ GhostTextButton.Visible = false
 GhostTextButton.Font = Enum.Font.SourceSans
 GhostTextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 GhostTextButton.TextSize = 20.000
-GhostTextButton.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-GhostTextButton.TextStrokeTransparency = 0.000
-GhostTextButton.TextWrapped = true
 
 GhostTextLabel.Parent = GhostFrame
 GhostTextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 GhostTextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
-GhostTextLabel.Position = UDim2.new(-0.00129664713, 0, -0.000140406293, 0)
 GhostTextLabel.Size = UDim2.new(0, 218, 0, 25)
 GhostTextLabel.Font = Enum.Font.SourceSans
 GhostTextLabel.Text = "Tool Giver"
@@ -266,7 +573,7 @@ GhostTextLabel.TextSize = 14.000
 GhostUpdateBtn.Parent = GhostFrame
 GhostUpdateBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 30)
 GhostUpdateBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
-GhostUpdateBtn.Position = UDim2.new(0.0825688094, 0, 0.804444432, 0)
+GhostUpdateBtn.Position = UDim2.new(0.08, 0, 0.80, 0)
 GhostUpdateBtn.Size = UDim2.new(0, 180, 0, 30)
 GhostUpdateBtn.Font = Enum.Font.SourceSans
 GhostUpdateBtn.Text = "update list"
@@ -275,16 +582,8 @@ GhostUpdateBtn.TextSize = 14.000
 
 local function updateGhostList()
     for _, v in pairs(GhostScrollingFrame:GetDescendants()) do
-        if v:IsA("TextButton") and v ~= GhostTextButton then
-            v:Destroy()
-        end
+        if v:IsA("TextButton") and v ~= GhostTextButton then v:Destroy() end
     end
-    
-    local function cloneToBackpack(toolName)
-        local clonedTool = toolName:Clone()
-        clonedTool.Parent = LocalPlayer:WaitForChild("Backpack")
-    end
-    
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("Tool") and v.Parent.Parent ~= LocalPlayer then
             local clonebutton = GhostTextButton:Clone()
@@ -292,7 +591,7 @@ local function updateGhostList()
             clonebutton.Visible = true
             clonebutton.Text = v.Name
             clonebutton.MouseButton1Click:Connect(function()
-                cloneToBackpack(v)
+                v:Clone().Parent = LocalPlayer:WaitForChild("Backpack")
             end)
         end
     end
@@ -300,51 +599,12 @@ end
 
 GhostUpdateBtn.MouseButton1Click:Connect(updateGhostList)
 
-local dragToggle = nil
-local dragStart = nil
-local startPos = nil
-
-GhostFrame.InputBegan:Connect(function(input)
-    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then 
-        dragToggle = true
-        dragStart = input.Position
-        startPos = GhostFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragToggle = false
-            end
-        end)
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        if dragToggle then
-            local delta = input.Position - dragStart
-            GhostFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end
-end)
-
 MainTab:CreateButton({
     Name = "Open Tool Giver UI",
     Callback = function()
         GhostScreenGui.Enabled = not GhostScreenGui.Enabled
-        if GhostScreenGui.Enabled then
-            updateGhostList()
-        end
+        if GhostScreenGui.Enabled then updateGhostList() end
         Rayfield:Notify({Title = "Tool Giver", Content = "Toggled Tool Giver Window!", Duration = 2})
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "Open Ghost Hub UI",
-    Callback = function()
-        GhostScreenGui.Enabled = not GhostScreenGui.Enabled
-        if GhostScreenGui.Enabled then
-            updateGhostList()
-        end
-        Rayfield:Notify({Title = "Ghost Hub", Content = "Toggled Ghost Hub Window!", Duration = 2})
     end,
 })
 
@@ -358,29 +618,16 @@ MainTab:CreateButton({
     end,
 })
 
-MainTab:CreateSection("Combat Tools")
-
-MainTab:CreateButton({
-    Name = "Execute Drop Kick Script",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))()
-        Rayfield:Notify({Title = "Success", Content = "Drop Kick Executed!", Duration = 3})
-    end,
-})
-
 --------------------------------------------------------
 -- TELEPORT SYSTEM TAB
 --------------------------------------------------------
 TeleportTab:CreateSection("Player Teleport")
 
 local selectedPlayerName = ""
-
 local function GetPlayerNames()
     local names = {}
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            table.insert(names, p.Name)
-        end
+        if p ~= LocalPlayer then table.insert(names, p.Name) end
     end
     return names
 end
@@ -391,16 +638,12 @@ local PlayerDropdown = TeleportTab:CreateDropdown({
     CurrentOption = {},
     MultipleOptions = false,
     Flag = "TeleportPlayerDropdown",
-    Callback = function(Option)
-        selectedPlayerName = Option[1] or ""
-    end,
+    Callback = function(Option) selectedPlayerName = Option[1] or "" end,
 })
 
 TeleportTab:CreateButton({
     Name = "Refresh Player List",
-    Callback = function()
-        PlayerDropdown:Set(GetPlayerNames())
-    end,
+    Callback = function() PlayerDropdown:Set(GetPlayerNames()) end,
 })
 
 TeleportTab:CreateButton({
@@ -420,76 +663,24 @@ TeleportTab:CreateButton({
     end,
 })
 
-TeleportTab:CreateSection("Position Save & Load")
-
-local savedCFrame = nil
-
-TeleportTab:CreateButton({
-    Name = "Save Current Position",
-    Callback = function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            savedCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-            Rayfield:Notify({Title = "Position Saved", Content = "Saved current location!", Duration = 3})
-        end
-    end,
-})
-
-TeleportTab:CreateButton({
-    Name = "Teleport to Saved Position",
-    Callback = function()
-        if savedCFrame then
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = savedCFrame
-                Rayfield:Notify({Title = "Teleport", Content = "Teleported to saved location!", Duration = 2})
-            end
-        else
-            Rayfield:Notify({Title = "Error", Content = "No position saved yet!", Duration = 2})
-        end
-    end,
-})
-
 --------------------------------------------------------
--- GAME TAB (สคริปต์แมพดัง ไม่มีคีย์ / No Key)
+-- GAME TAB
 --------------------------------------------------------
 GameTab:CreateSection("Popular Games Scripts (No Key)")
 
 GameTab:CreateButton({
-    Name = "Execute MM2 Script (Vynixius / No Key)",
+    Name = "Execute MM2 Script (Vynixius)",
     Callback = function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/ILoGi/Main/main/MM2"))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Murder Mystery 2 Script!", Duration = 3})
+        Rayfield:Notify({Title = "Executed", Content = "Loaded MM2 Script!", Duration = 3})
     end,
 })
 
 GameTab:CreateButton({
-    Name = "Execute BedWars Script (Vape V4 / No Key)",
+    Name = "Execute BedWars Script (Vape V4)",
     Callback = function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/main/NewMainScript.lua", true))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Vape V4 (BedWars/Universal)!", Duration = 3})
-    end,
-})
-
-GameTab:CreateButton({
-    Name = "Execute Arsenal Script (ThunderClient / No Key)",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ThunderTheMage/ThunderClient/main/Loader.lua"))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Arsenal Script!", Duration = 3})
-    end,
-})
-
-GameTab:CreateButton({
-    Name = "Execute Doors Script (FFJ Hub / No Key)",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/FFJHub/FFJHub/main/Doors/Doors.lua"))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Doors Script!", Duration = 3})
-    end,
-})
-
-GameTab:CreateButton({
-    Name = "Execute Blade Ball Script (Redz Hub / No Key)",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/realredz/BladeBall/main/Source.lua"))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Blade Ball Script!", Duration = 3})
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Vape V4!", Duration = 3})
     end,
 })
 
@@ -512,14 +703,10 @@ end
 
 local function ApplyESP(player)
     if player == LocalPlayer then return end
-
     local function CharacterAdded(character)
         RemoveESP(player)
         if not ESP_Enabled then return end
-
-        if TeamCheck_Enabled and player.Team ~= nil and player.Team == LocalPlayer.Team then
-            return
-        end
+        if TeamCheck_Enabled and player.Team ~= nil and player.Team == LocalPlayer.Team then return end
 
         local hrp = character:WaitForChild("HumanoidRootPart", 5)
         local humanoid = character:WaitForChild("Humanoid", 5)
@@ -529,16 +716,12 @@ local function ApplyESP(player)
             local boxColor = isSameTeam and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 
             local highlight = Instance.new("Highlight")
-            highlight.Name = "ESPHighlight"
             highlight.Adornee = character
             highlight.FillColor = boxColor
             highlight.FillTransparency = 0.5
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            highlight.OutlineTransparency = 0
             highlight.Parent = character
 
             local billboard = Instance.new("BillboardGui")
-            billboard.Name = "ESPName"
             billboard.Adornee = hrp
             billboard.Size = UDim2.new(0, 200, 0, 50)
             billboard.StudsOffset = Vector3.new(0, 3, 0)
@@ -555,7 +738,7 @@ local function ApplyESP(player)
 
             local function updateText()
                 if humanoid and humanoid.Health > 0 then
-                    nameLabel.Text = string.format("%s | HP: %d/%d", player.Name, math.floor(humanoid.Health), math.floor(humanoid.MaxHealth))
+                    nameLabel.Text = string.format("%s | HP: %d", player.Name, math.floor(humanoid.Health))
                 else
                     nameLabel.Text = player.Name .. " [DEAD]"
                 end
@@ -565,28 +748,11 @@ local function ApplyESP(player)
             humanoid.HealthChanged:Connect(updateText)
             billboard.Parent = character
 
-            ESP_Boxes[player] = {
-                Highlight = highlight,
-                Billboard = billboard
-            }
+            ESP_Boxes[player] = { Highlight = highlight, Billboard = billboard }
         end
     end
-
-    if player.Character then
-        task.spawn(function() CharacterAdded(player.Character) end)
-    end
+    if player.Character then task.spawn(function() CharacterAdded(player.Character) end) end
     player.CharacterAdded:Connect(CharacterAdded)
-end
-
-local function RefreshESP()
-    for player, _ in pairs(ESP_Boxes) do
-        RemoveESP(player)
-    end
-    if ESP_Enabled then
-        for _, player in ipairs(Players:GetPlayers()) do
-            ApplyESP(player)
-        end
-    end
 end
 
 ESPTab:CreateToggle({
@@ -595,300 +761,21 @@ ESPTab:CreateToggle({
     Flag = "PlayerESPToggle",
     Callback = function(Value)
         ESP_Enabled = Value
-        RefreshESP()
-    end,
-})
-
-ESPTab:CreateToggle({
-    Name = "Team Check (Hide Teammates)",
-    CurrentValue = false,
-    Flag = "TeamCheckToggle",
-    Callback = function(Value)
-        TeamCheck_Enabled = Value
-        RefreshESP()
-    end,
-})
-
-ESPTab:CreateSection("Hitbox Extender")
-
-local HitboxEnabled = false
-local HitboxSize = 2
-local HitboxConnection = nil
-
-local function ApplyHitbox()
-    if not HitboxEnabled then return end
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                hrp.Transparency = 0.7
-                hrp.BrickColor = BrickColor.new("Really red")
-                hrp.Material = Enum.Material.Neon
-                hrp.CanCollide = false
-            end
-        end
-    end
-end
-
-ESPTab:CreateToggle({
-    Name = "Enable Hitbox Extender",
-    CurrentValue = false,
-    Flag = "HitboxToggle",
-    Callback = function(Value)
-        HitboxEnabled = Value
-        if HitboxEnabled then
-            HitboxConnection = RunService.RenderStepped:Connect(ApplyHitbox)
-            Rayfield:Notify({Title = "Hitbox", Content = "Hitbox Extender Activated!", Duration = 2})
-        else
-            if HitboxConnection then
-                HitboxConnection:Disconnect()
-                HitboxConnection = nil
-            end
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        hrp.Size = Vector3.new(2, 2, 1)
-                        hrp.Transparency = 1
-                        hrp.CanCollide = false
-                    end
-                end
-            end
-            Rayfield:Notify({Title = "Hitbox", Content = "Hitbox Extender Deactivated!", Duration = 2})
-        end
-    end,
-})
-
-ESPTab:CreateSlider({
-    Name = "Hitbox Size",
-    Range = {2, 25},
-    Increment = 1,
-    Suffix = "Studs",
-    CurrentValue = 2,
-    Flag = "HitboxSlider",
-    Callback = function(Value)
-        HitboxSize = Value
-    end,
-})
-
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(char)
-        if ESP_Enabled then
-            task.wait(1)
-            ApplyESP(player)
-        end
-    end)
-end)
-
---------------------------------------------------------
--- FPS TAB (AIMBOT & FOV)
---------------------------------------------------------
-FPSTab:CreateSection("Targeting System (Aimbot)")
-
-local LockOnEnabled = false
-local ShowFOVCircle = false
-local AimFOVSize = 150
-local LockConnection = nil
-
-local FOVCircle = nil
-pcall(function()
-    FOVCircle = Drawing.new("Circle")
-    FOVCircle.Visible = false
-    FOVCircle.Transparency = 0.7
-    FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-    FOVCircle.Thickness = 1
-    FOVCircle.Filled = false
-end)
-
-local function GetClosestPlayerInFOV()
-    local closestPart = nil
-    local shortestDistance = AimFOVSize
-
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        return nil
-    end
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            if not (player.Team ~= nil and player.Team == LocalPlayer.Team) then
-                local char = player.Character
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-
-                if humanoid and humanoid.Health > 0 and targetPart then
-                    local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-                    if onScreen then
-                        local mousePos = Vector2.new(Mouse.X, Mouse.Y)
-                        local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
-                        if distance < shortestDistance then
-                            shortestDistance = distance
-                            closestPart = targetPart
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return closestPart
-end
-
-FPSTab:CreateToggle({
-    Name = "Camera Target Lock",
-    CurrentValue = false,
-    Flag = "TargetLockToggle",
-    Callback = function(Value)
-        LockOnEnabled = Value
-
-        if LockOnEnabled then
-            LockConnection = RunService.RenderStepped:Connect(function()
-                if FOVCircle then
-                    FOVCircle.Visible = ShowFOVCircle
-                    FOVCircle.Radius = AimFOVSize
-                    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-                end
-
-                local target = GetClosestPlayerInFOV()
-                if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local currentCFrame = Camera.CFrame
-                    local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-                    Camera.CFrame = currentCFrame:Lerp(targetCFrame, 0.2)
-                end
-            end)
-        else
-            if FOVCircle then FOVCircle.Visible = false end
-            if LockConnection then
-                LockConnection:Disconnect()
-                LockConnection = nil
-            end
-        end
-    end,
-})
-
-FPSTab:CreateToggle({
-    Name = "Show FOV Circle",
-    CurrentValue = false,
-    Flag = "FOVCircleToggle",
-    Callback = function(Value)
-        ShowFOVCircle = Value
-        if FOVCircle then
-            FOVCircle.Visible = Value
-        end
-    end,
-})
-
-FPSTab:CreateSlider({
-    Name = "Aimbot FOV Size",
-    Range = {50, 400},
-    Increment = 5,
-    Suffix = "Pixels",
-    CurrentValue = 150,
-    Flag = "AimFOVSlider",
-    Callback = function(Value)
-        AimFOVSize = Value
-        if FOVCircle then
-            FOVCircle.Radius = Value
-        end
+        for p, _ in pairs(ESP_Boxes) do RemoveESP(p) end
+        if ESP_Enabled then for _, p in ipairs(Players:GetPlayers()) do ApplyESP(p) end end
     end,
 })
 
 --------------------------------------------------------
--- SIMPLESPIV3 TAB
+-- SETTINGS TAB
 --------------------------------------------------------
-SpyTab:CreateSection("SimpleSpy V3 Controls")
-
-SpyTab:CreateButton({
-    Name = "Execute SimpleSpy V3",
-    Callback = function()
-        task.spawn(function()
-            local success, err = pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/78n/SimpleSpy/main/SimpleSpySource.lua"))()
-            end)
-            if not success then
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremeshadow/SimpleSpySource/master/SimpleSpy.lua"))()
-            end
-        end)
-        Rayfield:Notify({Title = "SimpleSpy", Content = "SimpleSpy V3 Executed!", Duration = 3})
-    end,
-})
-
---------------------------------------------------------
--- SETTINGS TAB (ระบบปรับแต่ง WalkSpeed, JumpPower, FOV, UI)
---------------------------------------------------------
-SettingsTab:CreateSection("Movement Settings")
-
-SettingsTab:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16, 200},
-    Increment = 1,
-    Suffix = "Speed",
-    CurrentValue = 16,
-    Flag = "WalkSpeedSlider",
-    Callback = function(Value)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = Value
-        end
-    end,
-})
-
-SettingsTab:CreateSlider({
-    Name = "JumpPower",
-    Range = {50, 300},
-    Increment = 5,
-    Suffix = "Power",
-    CurrentValue = 50,
-    Flag = "JumpPowerSlider",
-    Callback = function(Value)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = Value
-        end
-    end,
-})
-
-SettingsTab:CreateSection("Camera Settings")
-
-SettingsTab:CreateSlider({
-    Name = "Field of View (FOV)",
-    Range = {70, 120},
-    Increment = 1,
-    Suffix = "FOV",
-    CurrentValue = 70,
-    Flag = "FOVSlider",
-    Callback = function(Value)
-        Camera.FieldOfView = Value
-    end,
-})
-
 SettingsTab:CreateSection("UI Controls")
-
-SettingsTab:CreateButton({
-    Name = "Toggle UI",
-    Callback = function()
-        guiVisible = not guiVisible
-        local coreGui = game:GetService("CoreGui")
-        local rayfieldGui = coreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
-        if rayfieldGui then
-            local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
-            if mainFrame then
-                mainFrame.Visible = guiVisible
-            end
-        end
-    end,
-})
 
 SettingsTab:CreateButton({
     Name = "Unload UI",
     Callback = function()
-        stopFly()
-        stopFling()
-        if LockConnection then LockConnection:Disconnect() end
-        if HitboxConnection then HitboxConnection:Disconnect() end
-        if FOVCircle then FOVCircle:Remove() end
         GhostScreenGui:Destroy()
-        for player, _ in pairs(ESP_Boxes) do
-            RemoveESP(player)
-        end
+        ExecGui:Destroy()
         Rayfield:Destroy()
     end,
 })
