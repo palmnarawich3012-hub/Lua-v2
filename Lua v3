@@ -61,6 +61,8 @@ end)
 --------------------------------------------------------
 -- CUSTOM EXECUTOR UI (หน้าต่างแยกต่างหาก พร้อมระบบ Save/Load)
 --------------------------------------------------------
+local selectedSaveSlot = "Slot_1.txt" -- ค่าเริ่มต้นของ Slot
+
 local ExecGui = Instance.new("ScreenGui")
 local ExecFrame = Instance.new("Frame")
 local ExecTitle = Instance.new("TextLabel")
@@ -84,7 +86,7 @@ ExecFrame.Draggable = true -- ทำให้ลากขยับหน้า�
 ExecFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 ExecFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
 ExecFrame.Position = UDim2.new(0.3, 0, 0.2, 0)
-ExecFrame.Size = UDim2.new(0, 450, 0, 320) -- ปรับความสูงเพิ่มให้พอดีกับปุ่ม Save/Load
+ExecFrame.Size = UDim2.new(0, 450, 0, 320)
 
 ExecTitle.Name = "Title"
 ExecTitle.Parent = ExecFrame
@@ -147,7 +149,7 @@ ExecClearBtn.Text = "Clear (ล้างข้อความ)"
 ExecClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ExecClearBtn.TextSize = 14.000
 
--- ปุ่ม Save (บันทึกโค้ดลงไฟล์เครื่อง)
+-- ปุ่ม Save
 ExecSaveBtn.Name = "SaveButton"
 ExecSaveBtn.Parent = ExecFrame
 ExecSaveBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
@@ -155,11 +157,11 @@ ExecSaveBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
 ExecSaveBtn.Position = UDim2.new(0.03, 0, 0.89, 0)
 ExecSaveBtn.Size = UDim2.new(0.45, 0, 0.08, 0)
 ExecSaveBtn.Font = Enum.Font.SourceSansBold
-ExecSaveBtn.Text = "Save Script (บันทึก)"
+ExecSaveBtn.Text = "Save (เซฟลงสล็อตที่เลือก)"
 ExecSaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ExecSaveBtn.TextSize = 14.000
 
--- ปุ่ม Load (โหลดโค้ดจากไฟล์เครื่อง)
+-- ปุ่ม Load
 ExecLoadBtn.Name = "LoadButton"
 ExecLoadBtn.Parent = ExecFrame
 ExecLoadBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 0)
@@ -167,7 +169,7 @@ ExecLoadBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
 ExecLoadBtn.Position = UDim2.new(0.52, 0, 0.89, 0)
 ExecLoadBtn.Size = UDim2.new(0.45, 0, 0.08, 0)
 ExecLoadBtn.Font = Enum.Font.SourceSansBold
-ExecLoadBtn.Text = "Load Script (โหลด)"
+ExecLoadBtn.Text = "Load (โหลดจากสล็อตที่เลือก)"
 ExecLoadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ExecLoadBtn.TextSize = 14.000
 
@@ -182,11 +184,12 @@ end)
 
 ExecSaveBtn.MouseButton1Click:Connect(function()
     if writefile then
+        local fileName = "PalmExecutor_" .. selectedSaveSlot
         local success, err = pcall(function()
-            writefile("PalmExecutor_SavedScript.txt", ExecTextBox.Text)
+            writefile(fileName, ExecTextBox.Text)
         end)
         if success then
-            Rayfield:Notify({Title = "Executor Save", Content = "บันทึกสคริปต์ลงไฟล์สำเร็จ!", Duration = 3})
+            Rayfield:Notify({Title = "Executor Save", Content = "บันทึกสคริปต์ลง " .. fileName .. " สำเร็จ!", Duration = 3})
         else
             Rayfield:Notify({Title = "Save Error", Content = tostring(err), Duration = 4})
         end
@@ -196,18 +199,19 @@ ExecSaveBtn.MouseButton1Click:Connect(function()
 end)
 
 ExecLoadBtn.MouseButton1Click:Connect(function()
-    if readfile and isfile and isfile("PalmExecutor_SavedScript.txt") then
+    local fileName = "PalmExecutor_" .. selectedSaveSlot
+    if readfile and isfile and isfile(fileName) then
         local success, result = pcall(function()
-            return readfile("PalmExecutor_SavedScript.txt")
+            return readfile(fileName)
         end)
         if success then
             ExecTextBox.Text = result
-            Rayfield:Notify({Title = "Executor Load", Content = "โหลดสคริปต์จากไฟล์สำเร็จ!", Duration = 3})
+            Rayfield:Notify({Title = "Executor Load", Content = "โหลดสคริปต์จาก " .. fileName .. " สำเร็จ!", Duration = 3})
         else
             Rayfield:Notify({Title = "Load Error", Content = tostring(result), Duration = 4})
         end
     else
-        Rayfield:Notify({Title = "Load Error", Content = "ไม่พบไฟล์ที่บันทึกไว้ หรือ Executor ไม่รองรับ", Duration = 4})
+        Rayfield:Notify({Title = "Load Error", Content = "ไม่พบไฟล์ใน " .. fileName .. " หรือ Executor ไม่รองรับ", Duration = 4})
     end
 end)
 
@@ -230,7 +234,7 @@ ExecRunBtn.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------------
--- MAIN TAB (ปุ่มเปิด Custom Executor UI)
+-- MAIN TAB (หน้าต่างหลัก & ช้อยส์สำหรับ Save/Load)
 --------------------------------------------------------
 MainTab:CreateSection("Executor UI System")
 
@@ -239,6 +243,20 @@ MainTab:CreateButton({
     Callback = function()
         ExecGui.Enabled = not ExecGui.Enabled
         Rayfield:Notify({Title = "Executor", Content = "เปิด/ปิด หน้าต่าง Executor UI แยกแล้ว!", Duration = 2})
+    end,
+})
+
+-- สร้างช้อยส์ (Dropdown) สำหรับเลือกช่องบันทึกสคริปต์
+MainTab:CreateDropdown({
+    Name = "เลือกช่องเซฟสคริปต์ (Save Slots)",
+    Options = {"Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5", "Slot 6"},
+    CurrentOption = {"Slot 1"},
+    MultipleOptions = false,
+    Flag = "ExecutorSaveSlotDrop",
+    Callback = function(Option)
+        -- ดึงค่าที่เลือก และเปลี่ยนช่องว่างเป็น _ แล้วเติม .txt ต่อท้าย
+        selectedSaveSlot = string.gsub(Option[1], " ", "_") .. ".txt"
+        Rayfield:Notify({Title = "Slot Changed", Content = "เลือก " .. Option[1] .. " เป็นช่องเซฟ/โหลดปัจจุบันแล้ว!", Duration = 2})
     end,
 })
 
