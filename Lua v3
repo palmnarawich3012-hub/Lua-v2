@@ -236,6 +236,68 @@ end)
 --------------------------------------------------------
 -- MAIN TAB (หน้าต่างหลัก & ช้อยส์สำหรับ Save/Load)
 --------------------------------------------------------
+MainTab:CreateSection("Custom Script Loader")
+
+MainTab:CreateButton({
+    Name = "Execute Rootleak Script",
+    Callback = function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Rootleak/roblox/refs/heads/main/main.lua"))()
+        end)
+        if success then
+            Rayfield:Notify({Title = "Success", Content = "Rootleak Script Executed!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Error", Content = tostring(err), Duration = 5})
+            warn("Rootleak Error: " .. tostring(err))
+        end
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "Execute Epik Dance R6 Remake",
+    Callback = function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Epik-dance-r6-remake-64511"))()
+        end)
+        if success then
+            Rayfield:Notify({Title = "Success", Content = "Epik Dance R6 Executed!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Error", Content = tostring(err), Duration = 5})
+            warn("Epik Dance Error: " .. tostring(err))
+        end
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "Execute Current Angle (Reanimate)",
+    Callback = function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-CurrentAngle-V2-Full-axis-reanimate-43351"))()
+        end)
+        if success then
+            Rayfield:Notify({Title = "Success", Content = "Current Angle Executed!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Error", Content = tostring(err), Duration = 5})
+            warn("Current Angle Error: " .. tostring(err))
+        end
+    end,
+})
+
+MainTab:CreateButton({
+    Name = "Execute Epik R6 Dances (After Current Angle)",
+    Callback = function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Epik-R6-Dances-Remake-85095"))()
+        end)
+        if success then
+            Rayfield:Notify({Title = "Success", Content = "Epik R6 Dances Executed!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Error", Content = tostring(err), Duration = 5})
+            warn("Epik R6 Dances Error: " .. tostring(err))
+        end
+    end,
+})
+
 MainTab:CreateSection("Executor UI System")
 
 MainTab:CreateButton({
