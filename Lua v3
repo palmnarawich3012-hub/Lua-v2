@@ -25,166 +25,329 @@ local Window = Rayfield:CreateWindow({
 -- ========================================================
 local MainTab = Window:CreateTab("Main", 4483362458)
 local TeleportTab = Window:CreateTab("Teleport", 4483362458)
-local BloxFruitsTab = Window:CreateTab("Blox Fruits", 4483362458)
-local ESPTab = Window:CreateTab("ESP System", 4483362458)
+local GameTab = Window:CreateTab("Game", 4483362458)
+local ESPTab = Window:CreateTab("ESP & Hitbox", 4483362458)
 local FPSTab = Window:CreateTab("FPS System", 4483362458)
+local SpyTab = Window:CreateTab("SimpleSpy", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
 --------------------------------------------------------
--- GUI ANIMATION SYSTEM
+-- GUI TOGGLE (กดปุ่ม LeftControl เพื่อเปิด-ปิด Rayfield UI)
 --------------------------------------------------------
 local guiVisible = true
-local isAnimating = false
-
-local function AnimateGUI(show)
-    if isAnimating then return end
-    
-    local coreGui = game:GetService("CoreGui")
-    local rayfieldGui = coreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
-    
-    if not rayfieldGui then return end
-    
-    local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
-    if not mainFrame then return end
-    
-    isAnimating = true
-    
-    if show then
-        mainFrame.Visible = true
-        mainFrame.Size = UDim2.new(0, 0, 0, 0)
-        
-        local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        local targetSize = UDim2.new(0, 500, 0, 350)
-        
-        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = targetSize})
-        tween:Play()
-        tween.Completed:Connect(function()
-            guiVisible = true
-            isAnimating = false
-        end)
-    else
-        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        local targetSize = UDim2.new(0, 0, 0, 0)
-        
-        local tween = TweenService:Create(mainFrame, tweenInfo, {Size = targetSize})
-        tween:Play()
-        tween.Completed:Connect(function()
-            mainFrame.Visible = false
-            guiVisible = false
-            isAnimating = false
-        end)
-    end
-end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.LeftControl then
-        AnimateGUI(not guiVisible)
+        guiVisible = not guiVisible
+        local coreGui = game:GetService("CoreGui")
+        local rayfieldGui = coreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+        if rayfieldGui then
+            local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
+            if mainFrame then
+                mainFrame.Visible = guiVisible
+            end
+        end
     end
 end)
 
 --------------------------------------------------------
--- TELEPORT SYSTEM TAB (ระบบวาร์ป)
+-- MAIN TAB (Tool Giver, Fly V3, Player Fling & Admin)
 --------------------------------------------------------
-TeleportTab:CreateSection("Player Teleport (วาร์ปไปหาผู้เล่น)")
+MainTab:CreateSection("Movement & Exploits (Fly & Fling)")
 
-local selectedPlayerName = ""
+-- Fly V3 Variables & Logic
+local flying = false
+local flySpeed = 50
+local flyConnection = nil
+local bv, bg
 
-local function GetPlayerNames()
-    local names = {}
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            table.insert(names, p.Name)
+local function startFly()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    flying = true
+    humanoid.PlatformStand = true
+
+    bv = Instance.new("BodyVelocity")
+    bv.Parent = hrp
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = Vector3.new(0, 0, 0)
+
+    bg = Instance.new("BodyGyro")
+    bg.Parent = hrp
+    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bg.CFrame = hrp.CFrame
+
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not flying or not char or not hrp.Parent then return end
+        
+        local camCFrame = Camera.CFrame
+        local moveDir = Vector3.new(0, 0, 0)
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + camCFrame.LookVector
         end
-    end
-    return names
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - camCFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - camCFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + camCFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+
+        bv.Velocity = moveDir * flySpeed
+        bg.CFrame = camCFrame
+    end)
 end
 
-local PlayerDropdown = TeleportTab:CreateDropdown({
-    Name = "Select Player (เลือกผู้เล่น)",
-    Options = GetPlayerNames(),
-    CurrentOption = {},
-    MultipleOptions = false,
-    Flag = "TeleportPlayerDropdown",
-    Callback = function(Option)
-        selectedPlayerName = Option[1] or ""
-    end,
-})
+local function stopFly()
+    flying = false
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    if bv then bv:Destroy() end
+    if bg then bg:Destroy() end
 
-TeleportTab:CreateButton({
-    Name = "Refresh Player List (รีเฟรชรายชื่อ)",
-    Callback = function()
-        PlayerDropdown:Set(GetPlayerNames())
-    end,
-})
+    local char = LocalPlayer.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
+        end
+    end
+end
 
-TeleportTab:CreateButton({
-    Name = "Teleport to Player (วาร์ป)",
-    Callback = function()
-        if selectedPlayerName ~= "" then
-            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
-            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
-                    Rayfield:Notify({Title = "Teleport", Content = "Teleported to " .. selectedPlayerName, Duration = 2})
-                end
-            end
+MainTab:CreateToggle({
+    Name = "Enable Fly V3",
+    CurrentValue = false,
+    Flag = "FlyToggleMain",
+    Callback = function(Value)
+        if Value then
+            startFly()
+            Rayfield:Notify({Title = "Fly V3", Content = "Fly Activated! (Use W, A, S, D, Space, Shift)", Duration = 3})
         else
-            Rayfield:Notify({Title = "Error", Content = "Please select a player first!", Duration = 2})
+            stopFly()
+            Rayfield:Notify({Title = "Fly V3", Content = "Fly Deactivated!", Duration = 2})
         end
     end,
 })
 
-TeleportTab:CreateSection("Position Save & Load (บันทึก/วาร์ปจุด)")
-
-local savedCFrame = nil
-
-TeleportTab:CreateButton({
-    Name = "Save Current Position (บันทึกพิกัดปัจจุบัน)",
-    Callback = function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            savedCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
-            Rayfield:Notify({Title = "Position Saved", Content = "Saved current location!", Duration = 3})
-        end
+MainTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {16, 300},
+    Increment = 5,
+    Suffix = "Speed",
+    CurrentValue = 50,
+    Flag = "FlySpeedSliderMain",
+    Callback = function(Value)
+        flySpeed = Value
     end,
 })
 
-TeleportTab:CreateButton({
-    Name = "Teleport to Saved Position (วาร์ปไปจุดที่บันทึก)",
-    Callback = function()
-        if savedCFrame then
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = savedCFrame
-                Rayfield:Notify({Title = "Teleport", Content = "Teleported to saved location!", Duration = 2})
-            end
+-- Player Fling Variables & Logic
+local flinging = false
+local flingConnection = nil
+
+local function startFling()
+    flinging = true
+    flingConnection = RunService.Heartbeat:Connect(function()
+        if not flinging then return end
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char.HumanoidRootPart
+        
+        local vel = hrp.Velocity
+        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+        RunService.RenderStepped:Wait()
+        if hrp and hrp.Parent then
+            hrp.Velocity = vel
+        end
+    end)
+end
+
+local function stopFling()
+    flinging = false
+    if flingConnection then
+        flingConnection:Disconnect()
+        flingConnection = nil
+    end
+end
+
+MainTab:CreateToggle({
+    Name = "Enable Player Fling",
+    CurrentValue = false,
+    Flag = "FlingToggleMain",
+    Callback = function(Value)
+        if Value then
+            startFling()
+            Rayfield:Notify({Title = "Player Fling", Content = "Fling Activated! (Walk into players to fling them)", Duration = 3})
         else
-            Rayfield:Notify({Title = "Error", Content = "No position saved yet!", Duration = 2})
+            stopFling()
+            Rayfield:Notify({Title = "Player Fling", Content = "Fling Deactivated!", Duration = 2})
         end
     end,
 })
 
-TeleportTab:CreateSection("Quick Utilities")
+MainTab:CreateSection("Tool Giver Systems")
 
-TeleportTab:CreateButton({
-    Name = "Teleport High Above (วาร์ปขึ้นที่สูง)",
+local GhostScreenGui = Instance.new("ScreenGui")
+local GhostFrame = Instance.new("Frame")
+local GhostScrollingFrame = Instance.new("ScrollingFrame")
+local GhostUIListLayout = Instance.new("UIListLayout")
+local GhostTextButton = Instance.new("TextButton")
+local GhostTextLabel = Instance.new("TextLabel")
+local GhostUpdateBtn = Instance.new("TextButton")
+
+GhostScreenGui.Parent = game:GetService("CoreGui")
+GhostScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GhostScreenGui.ResetOnSpawn = false
+GhostScreenGui.Enabled = false 
+
+GhostFrame.Parent = GhostScreenGui
+GhostFrame.Active = true
+GhostFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+GhostFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+GhostFrame.Position = UDim2.new(0.0610425249, 0, 0.0939490423, 0)
+GhostFrame.Size = UDim2.new(0, 218, 0, 225)
+
+GhostScrollingFrame.Parent = GhostFrame
+GhostScrollingFrame.Active = true
+GhostScrollingFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+GhostScrollingFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+GhostScrollingFrame.Position = UDim2.new(0.0871559605, 0, 0.155555561, 0)
+GhostScrollingFrame.Size = UDim2.new(0, 187, 0, 136)
+GhostScrollingFrame.CanvasSize = UDim2.new(0, 0, 35, 0)
+
+GhostUIListLayout.Parent = GhostScrollingFrame
+GhostUIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+GhostTextButton.Parent = GhostScrollingFrame
+GhostTextButton.BackgroundColor3 = Color3.fromRGB(117, 117, 117)
+GhostTextButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
+GhostTextButton.Size = UDim2.new(0, 155, 0, 39)
+GhostTextButton.Visible = false
+GhostTextButton.Font = Enum.Font.SourceSans
+GhostTextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+GhostTextButton.TextSize = 20.000
+GhostTextButton.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+GhostTextButton.TextStrokeTransparency = 0.000
+GhostTextButton.TextWrapped = true
+
+GhostTextLabel.Parent = GhostFrame
+GhostTextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+GhostTextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+GhostTextLabel.Position = UDim2.new(-0.00129664713, 0, -0.000140406293, 0)
+GhostTextLabel.Size = UDim2.new(0, 218, 0, 25)
+GhostTextLabel.Font = Enum.Font.SourceSans
+GhostTextLabel.Text = "Tool Giver"
+GhostTextLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+GhostTextLabel.TextSize = 14.000
+
+GhostUpdateBtn.Parent = GhostFrame
+GhostUpdateBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 30)
+GhostUpdateBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
+GhostUpdateBtn.Position = UDim2.new(0.0825688094, 0, 0.804444432, 0)
+GhostUpdateBtn.Size = UDim2.new(0, 180, 0, 30)
+GhostUpdateBtn.Font = Enum.Font.SourceSans
+GhostUpdateBtn.Text = "update list"
+GhostUpdateBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+GhostUpdateBtn.TextSize = 14.000
+
+local function updateGhostList()
+    for _, v in pairs(GhostScrollingFrame:GetDescendants()) do
+        if v:IsA("TextButton") and v ~= GhostTextButton then
+            v:Destroy()
+        end
+    end
+    
+    local function cloneToBackpack(toolName)
+        local clonedTool = toolName:Clone()
+        clonedTool.Parent = LocalPlayer:WaitForChild("Backpack")
+    end
+    
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("Tool") and v.Parent.Parent ~= LocalPlayer then
+            local clonebutton = GhostTextButton:Clone()
+            clonebutton.Parent = GhostScrollingFrame
+            clonebutton.Visible = true
+            clonebutton.Text = v.Name
+            clonebutton.MouseButton1Click:Connect(function()
+                cloneToBackpack(v)
+            end)
+        end
+    end
+end
+
+GhostUpdateBtn.MouseButton1Click:Connect(updateGhostList)
+
+local dragToggle = nil
+local dragStart = nil
+local startPos = nil
+
+GhostFrame.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then 
+        dragToggle = true
+        dragStart = input.Position
+        startPos = GhostFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragToggle = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragToggle then
+            local delta = input.Position - dragStart
+            GhostFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end
+end)
+
+MainTab:CreateButton({
+    Name = "Open Tool Giver UI",
     Callback = function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 100, 0)
+        GhostScreenGui.Enabled = not GhostScreenGui.Enabled
+        if GhostScreenGui.Enabled then
+            updateGhostList()
         end
+        Rayfield:Notify({Title = "Tool Giver", Content = "Toggled Tool Giver Window!", Duration = 2})
     end,
 })
 
---------------------------------------------------------
--- MAIN TAB
---------------------------------------------------------
+MainTab:CreateButton({
+    Name = "Open Ghost Hub UI",
+    Callback = function()
+        GhostScreenGui.Enabled = not GhostScreenGui.Enabled
+        if GhostScreenGui.Enabled then
+            updateGhostList()
+        end
+        Rayfield:Notify({Title = "Ghost Hub", Content = "Toggled Ghost Hub Window!", Duration = 2})
+    end,
+})
+
 MainTab:CreateSection("Admin & Scripts")
 
 MainTab:CreateButton({
@@ -206,28 +369,132 @@ MainTab:CreateButton({
 })
 
 --------------------------------------------------------
--- BLOX FRUITS TAB
+-- TELEPORT SYSTEM TAB
 --------------------------------------------------------
-BloxFruitsTab:CreateSection("Blox Fruits Scripts Hub")
+TeleportTab:CreateSection("Player Teleport")
 
-BloxFruitsTab:CreateButton({
-    Name = "Execute Redz Hub (Blox Fruits)",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/realredz/BloxFruits/main/Source.lua"))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Redz Hub!", Duration = 3})
+local selectedPlayerName = ""
+
+local function GetPlayerNames()
+    local names = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(names, p.Name)
+        end
+    end
+    return names
+end
+
+local PlayerDropdown = TeleportTab:CreateDropdown({
+    Name = "Select Player",
+    Options = GetPlayerNames(),
+    CurrentOption = {},
+    MultipleOptions = false,
+    Flag = "TeleportPlayerDropdown",
+    Callback = function(Option)
+        selectedPlayerName = Option[1] or ""
     end,
 })
 
-BloxFruitsTab:CreateButton({
-    Name = "Execute Hoho Hub",
+TeleportTab:CreateButton({
+    Name = "Refresh Player List",
     Callback = function()
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/acsu123/HOHO_HUB/main/Loading_v3.lua'))()
-        Rayfield:Notify({Title = "Executed", Content = "Loaded Hoho Hub!", Duration = 3})
+        PlayerDropdown:Set(GetPlayerNames())
+    end,
+})
+
+TeleportTab:CreateButton({
+    Name = "Teleport to Player",
+    Callback = function()
+        if selectedPlayerName ~= "" then
+            local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    Rayfield:Notify({Title = "Teleport", Content = "Teleported to " .. selectedPlayerName, Duration = 2})
+                end
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "Please select a player first!", Duration = 2})
+        end
+    end,
+})
+
+TeleportTab:CreateSection("Position Save & Load")
+
+local savedCFrame = nil
+
+TeleportTab:CreateButton({
+    Name = "Save Current Position",
+    Callback = function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            savedCFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+            Rayfield:Notify({Title = "Position Saved", Content = "Saved current location!", Duration = 3})
+        end
+    end,
+})
+
+TeleportTab:CreateButton({
+    Name = "Teleport to Saved Position",
+    Callback = function()
+        if savedCFrame then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = savedCFrame
+                Rayfield:Notify({Title = "Teleport", Content = "Teleported to saved location!", Duration = 2})
+            end
+        else
+            Rayfield:Notify({Title = "Error", Content = "No position saved yet!", Duration = 2})
+        end
     end,
 })
 
 --------------------------------------------------------
--- ESP SYSTEM TAB
+-- GAME TAB (สคริปต์แมพดัง ไม่มีคีย์ / No Key)
+--------------------------------------------------------
+GameTab:CreateSection("Popular Games Scripts (No Key)")
+
+GameTab:CreateButton({
+    Name = "Execute MM2 Script (Vynixius / No Key)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ILoGi/Main/main/MM2"))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Murder Mystery 2 Script!", Duration = 3})
+    end,
+})
+
+GameTab:CreateButton({
+    Name = "Execute BedWars Script (Vape V4 / No Key)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/main/NewMainScript.lua", true))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Vape V4 (BedWars/Universal)!", Duration = 3})
+    end,
+})
+
+GameTab:CreateButton({
+    Name = "Execute Arsenal Script (ThunderClient / No Key)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ThunderTheMage/ThunderClient/main/Loader.lua"))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Arsenal Script!", Duration = 3})
+    end,
+})
+
+GameTab:CreateButton({
+    Name = "Execute Doors Script (FFJ Hub / No Key)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/FFJHub/FFJHub/main/Doors/Doors.lua"))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Doors Script!", Duration = 3})
+    end,
+})
+
+GameTab:CreateButton({
+    Name = "Execute Blade Ball Script (Redz Hub / No Key)",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/realredz/BladeBall/main/Source.lua"))()
+        Rayfield:Notify({Title = "Executed", Content = "Loaded Blade Ball Script!", Duration = 3})
+    end,
+})
+
+--------------------------------------------------------
+-- ESP & HITBOX TAB
 --------------------------------------------------------
 ESPTab:CreateSection("Player ESP Controls")
 
@@ -342,23 +609,105 @@ ESPTab:CreateToggle({
     end,
 })
 
+ESPTab:CreateSection("Hitbox Extender")
+
+local HitboxEnabled = false
+local HitboxSize = 2
+local HitboxConnection = nil
+
+local function ApplyHitbox()
+    if not HitboxEnabled then return end
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                hrp.Transparency = 0.7
+                hrp.BrickColor = BrickColor.new("Really red")
+                hrp.Material = Enum.Material.Neon
+                hrp.CanCollide = false
+            end
+        end
+    end
+end
+
+ESPTab:CreateToggle({
+    Name = "Enable Hitbox Extender",
+    CurrentValue = false,
+    Flag = "HitboxToggle",
+    Callback = function(Value)
+        HitboxEnabled = Value
+        if HitboxEnabled then
+            HitboxConnection = RunService.RenderStepped:Connect(ApplyHitbox)
+            Rayfield:Notify({Title = "Hitbox", Content = "Hitbox Extender Activated!", Duration = 2})
+        else
+            if HitboxConnection then
+                HitboxConnection:Disconnect()
+                HitboxConnection = nil
+            end
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.Size = Vector3.new(2, 2, 1)
+                        hrp.Transparency = 1
+                        hrp.CanCollide = false
+                    end
+                end
+            end
+            Rayfield:Notify({Title = "Hitbox", Content = "Hitbox Extender Deactivated!", Duration = 2})
+        end
+    end,
+})
+
+ESPTab:CreateSlider({
+    Name = "Hitbox Size",
+    Range = {2, 25},
+    Increment = 1,
+    Suffix = "Studs",
+    CurrentValue = 2,
+    Flag = "HitboxSlider",
+    Callback = function(Value)
+        HitboxSize = Value
+    end,
+})
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(char)
+        if ESP_Enabled then
+            task.wait(1)
+            ApplyESP(player)
+        end
+    end)
+end)
+
 --------------------------------------------------------
--- FPS TAB
+-- FPS TAB (AIMBOT & FOV)
 --------------------------------------------------------
-FPSTab:CreateSection("Targeting System")
+FPSTab:CreateSection("Targeting System (Aimbot)")
 
 local LockOnEnabled = false
+local ShowFOVCircle = false
+local AimFOVSize = 150
 local LockConnection = nil
 
-local function GetClosestPlayer()
+local FOVCircle = nil
+pcall(function()
+    FOVCircle = Drawing.new("Circle")
+    FOVCircle.Visible = false
+    FOVCircle.Transparency = 0.7
+    FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+    FOVCircle.Thickness = 1
+    FOVCircle.Filled = false
+end)
+
+local function GetClosestPlayerInFOV()
     local closestPart = nil
-    local shortestDistance = 150
+    local shortestDistance = AimFOVSize
 
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         return nil
     end
-
-    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
@@ -368,10 +717,14 @@ local function GetClosestPlayer()
                 local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
 
                 if humanoid and humanoid.Health > 0 and targetPart then
-                    local distance = (targetPart.Position - myPos).Magnitude
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestPart = targetPart
+                    local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+                    if onScreen then
+                        local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+                        local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            closestPart = targetPart
+                        end
                     end
                 end
             end
@@ -390,7 +743,13 @@ FPSTab:CreateToggle({
 
         if LockOnEnabled then
             LockConnection = RunService.RenderStepped:Connect(function()
-                local target = GetClosestPlayer()
+                if FOVCircle then
+                    FOVCircle.Visible = ShowFOVCircle
+                    FOVCircle.Radius = AimFOVSize
+                    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
+                end
+
+                local target = GetClosestPlayerInFOV()
                 if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     local currentCFrame = Camera.CFrame
                     local targetCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
@@ -398,6 +757,7 @@ FPSTab:CreateToggle({
                 end
             end)
         else
+            if FOVCircle then FOVCircle.Visible = false end
             if LockConnection then
                 LockConnection:Disconnect()
                 LockConnection = nil
@@ -406,8 +766,55 @@ FPSTab:CreateToggle({
     end,
 })
 
+FPSTab:CreateToggle({
+    Name = "Show FOV Circle",
+    CurrentValue = false,
+    Flag = "FOVCircleToggle",
+    Callback = function(Value)
+        ShowFOVCircle = Value
+        if FOVCircle then
+            FOVCircle.Visible = Value
+        end
+    end,
+})
+
+FPSTab:CreateSlider({
+    Name = "Aimbot FOV Size",
+    Range = {50, 400},
+    Increment = 5,
+    Suffix = "Pixels",
+    CurrentValue = 150,
+    Flag = "AimFOVSlider",
+    Callback = function(Value)
+        AimFOVSize = Value
+        if FOVCircle then
+            FOVCircle.Radius = Value
+        end
+    end,
+})
+
 --------------------------------------------------------
--- SETTINGS TAB
+-- SIMPLESPIV3 TAB
+--------------------------------------------------------
+SpyTab:CreateSection("SimpleSpy V3 Controls")
+
+SpyTab:CreateButton({
+    Name = "Execute SimpleSpy V3",
+    Callback = function()
+        task.spawn(function()
+            local success, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/78n/SimpleSpy/main/SimpleSpySource.lua"))()
+            end)
+            if not success then
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremeshadow/SimpleSpySource/master/SimpleSpy.lua"))()
+            end
+        end)
+        Rayfield:Notify({Title = "SimpleSpy", Content = "SimpleSpy V3 Executed!", Duration = 3})
+    end,
+})
+
+--------------------------------------------------------
+-- SETTINGS TAB (ระบบปรับแต่ง WalkSpeed, JumpPower, FOV, UI)
 --------------------------------------------------------
 SettingsTab:CreateSection("Movement Settings")
 
@@ -439,19 +846,46 @@ SettingsTab:CreateSlider({
     end,
 })
 
+SettingsTab:CreateSection("Camera Settings")
+
+SettingsTab:CreateSlider({
+    Name = "Field of View (FOV)",
+    Range = {70, 120},
+    Increment = 1,
+    Suffix = "FOV",
+    CurrentValue = 70,
+    Flag = "FOVSlider",
+    Callback = function(Value)
+        Camera.FieldOfView = Value
+    end,
+})
+
 SettingsTab:CreateSection("UI Controls")
 
 SettingsTab:CreateButton({
-    Name = "Toggle UI (With Animation)",
+    Name = "Toggle UI",
     Callback = function()
-        AnimateGUI(not guiVisible)
+        guiVisible = not guiVisible
+        local coreGui = game:GetService("CoreGui")
+        local rayfieldGui = coreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+        if rayfieldGui then
+            local mainFrame = rayfieldGui:FindFirstChild("Main", true) or rayfieldGui:FindFirstChild("MainFrame", true)
+            if mainFrame then
+                mainFrame.Visible = guiVisible
+            end
+        end
     end,
 })
 
 SettingsTab:CreateButton({
     Name = "Unload UI",
     Callback = function()
+        stopFly()
+        stopFling()
         if LockConnection then LockConnection:Disconnect() end
+        if HitboxConnection then HitboxConnection:Disconnect() end
+        if FOVCircle then FOVCircle:Remove() end
+        GhostScreenGui:Destroy()
         for player, _ in pairs(ESP_Boxes) do
             RemoveESP(player)
         end
