@@ -1,0 +1,185 @@
+-- [[ Roblox Modern UI: Physics Launcher ]] --
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- ตรวจสอบว่ามี UI เดิมอยู่ไหม ถ้ามีให้ลบออกก่อน
+if CoreGui:FindFirstChild("PhysicsLauncherUI") then
+    CoreGui.PhysicsLauncherUI:Destroy()
+end
+
+-- สร้าง ScreenGui หลัก
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PhysicsLauncherUI"
+screenGui.Parent = CoreGui
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- สร้างปุ่มเปิด/ปิดเมนูแบบลอย (Floating Toggle Button)
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+toggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "🚀"
+toggleButton.TextSize = 22
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.Parent = screenGui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(1, 0)
+toggleCorner.Parent = toggleButton
+
+local toggleStroke = Instance.new("UIStroke")
+toggleStroke.Color = Color3.fromRGB(0, 170, 255)
+toggleStroke.Thickness = 2
+toggleStroke.Parent = toggleButton
+
+-- สร้างกรอบหน้าต่างหลัก (Main Frame)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 380, 0, 220)
+mainFrame.Position = UDim2.new(0.5, -190, 0.5, -110)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(50, 50, 75)
+mainStroke.Thickness = 2
+mainStroke.Parent = mainFrame
+
+-- แถบหัวข้อ (Top Bar)
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+topBar.BorderSizePixel = 0
+topBar.Parent = mainFrame
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 12)
+topCorner.Parent = topBar
+
+-- แก้ไขมุมด้านล่างของ TopBar ให้ตรงกับ MainFrame
+local fixCover = Instance.new("Frame")
+fixCover.Size = UDim2.new(1, 0, 0, 10)
+fixCover.Position = UDim2.new(0, 0, 1, -10)
+fixCover.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+fixCover.BorderSizePixel = 0
+fixCover.Parent = topBar
+
+-- ข้อความชื่อ UI
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0, 200, 1, 0)
+titleLabel.Position = UDim2.new(0, 15, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🚀 PHYSICS LAUNCHER"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 14
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = topBar
+
+-- ปุ่มปิดหน้าต่าง (Close Button)
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0.5, -15)
+closeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeButton.TextSize = 14
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = topBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+-- ฟังก์ชันสร้างปุ่มระดับความแรง (Level Buttons Generator)
+local function createLevelButton(name, positionX, color, levelText)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(0, 105, 0, 100)
+    btn.Position = UDim2.new(0, positionX, 0, 65)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    btn.AutoButtonColor = false
+    btn.Parent = mainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color
+    stroke.Thickness = 2
+    stroke.Parent = btn
+    
+    local textLbl = Instance.new("TextLabel")
+    textLbl.Size = UDim2.new(1, 0, 1, 0)
+    textLbl.BackgroundTransparency = 1
+    textLbl.Text = levelText
+    textLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLbl.TextSize = 13
+    textLbl.Font = Enum.Font.GothamBold
+    textLbl.TextWrapped = true
+    textLbl.Parent = btn
+    
+    return btn
+end
+
+-- สร้างปุ่ม Level 1, 2, 3
+local btnLevel1 = createLevelButton("Level1", 15, Color3.fromRGB(0, 170, 255), "LEVEL 1\n(เบาๆ)")
+local btnLevel2 = createLevelButton("Level2", 135, Color3.fromRGB(255, 170, 0), "LEVEL 2\n(กลาง)")
+local btnLevel3 = createLevelButton("Level3", 255, Color3.fromRGB(255, 60, 60), "LEVEL 3\n(กระเด็นไกลสุด!)")
+
+-- สถานะเปิดปิด UI
+local isVisible = true
+local function toggleUI()
+    isVisible = not isVisible
+    mainFrame.Visible = isVisible
+end
+
+toggleButton.MouseButton1Click:Connect(toggleUI)
+closeButton.MouseButton1Click:Connect(toggleUI)
+
+-- กดปุ่ม RightShift เพื่อเปิด/ปิด
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
+        toggleUI()
+    end
+end)
+
+-- [[ ฟังก์ชันทำให้ตัวละครปลิวตามระดับ ]] --
+local function launchCharacter(powerLevel)
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    
+    -- คำนวณทิศทางการปลิว (พุ่งขึ้นฟ้าและไปข้างหน้าตามมุมมอง)
+    local lookVec = workspace.CurrentCamera.CFrame.LookVector
+    local forceVector = Vector3.new(0, 0, 0)
+    
+    if powerLevel == 1 then
+        forceVector = Vector3.new(0, 65, 0) + (lookVec * 25) -- ระดับ 1: กระโดดสูงเบาๆ
+    elseif powerLevel == 2 then
+        forceVector = Vector3.new(0, 120, 0) + (lookVec * 70) -- ระดับ 2: พุ่งตัวกลาง
+    elseif powerLevel == 3 then
+        forceVector = Vector3.new(0, 250, 0) + (lookVec * 180) -- ระดับ 3: ปลิวกระเด็นรุนแรงสะใจ
+    end
+    
+    -- ใช้ LinearVelocity หรือการใส่ Velocity ตรงๆ เข้าไปที่ HumanoidRootPart
+    hrp.AssemblyLinearVelocity = forceVector
+end
+
+-- ผูกฟังก์ชันเข้ากับปุ่ม UI
+btnLevel1.MouseButton1Click:Connect(function() launchCharacter(1) end)
+btnLevel2.MouseButton1Click:Connect(function() launchCharacter(2) end)
+btnLevel3.MouseButton1Click:Connect(function() launchCharacter(3) end)
